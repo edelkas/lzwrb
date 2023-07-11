@@ -25,7 +25,7 @@ class LZW
     dict_init
 
     # LZW-encode data
-    buf = ''
+    buf = data.first
     data.each_char do |c|
       new = buf + c
       if dict_has(new)
@@ -56,6 +56,7 @@ class LZW
       {
         min_bits: 8,
         max_bits: 12,
+        lsb:      true,
         codes:    true
       }
     else
@@ -79,7 +80,8 @@ class LZW
     @dict = (0 .. @key).times.map{ |i| [i.chr, i] }.to_h
 
     # Increment key index if clear/stop symbols are being used
-    @key += 2 if !@codes.nil?
+    @key += 1 if !@clear.nil?
+    @key += 1 if !@stop.nil?
     @bits = @key.bit_length
 
     # Output clear code if necessary
