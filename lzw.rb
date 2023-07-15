@@ -44,6 +44,7 @@ class LZW
 
     # LZW-encode data
     buf = ''
+    add_code(@clear) if !@clear.nil?
     data.each_char do |c|
       next_buf = buf + c
       if dict_has(next_buf)
@@ -102,9 +103,6 @@ class LZW
     @key += 1 if !@clear.nil?
     @key += 1 if !@stop.nil?
     @bits = @key.bit_length
-
-    # Output clear code if necessary
-    add_code(@clear) if !@clear.nil?
   end
 
   def dict_has(str)
@@ -121,9 +119,12 @@ class LZW
     # Check variable width code constraints
     if @key == 1 << @bits
       if @bits == @max_bits
+        add_code(@clear) if !@clear.nil?
         dict_init
+        puts "Reset dictionary"
       else
         @bits += 1
+        puts "Increased code size to #{@bits}"
       end
     end
   end
@@ -198,7 +199,51 @@ class LZW
 
 end
 
+def blockify(data)
+  return "\x00".b if data.size == 0
+  ff = "\xFF".b.freeze
+  off = 0
+  out = "".b
+  len = data.length
+  for _ in (0 ... len / 255)
+    out << ff << data[off ... off + 255]
+    off += 255
+  end
+  out << (len - off).chr << data[off..-1] if off < len
+  out << "\x00".b
+  out
+rescue
+  "\x00".b
+end
+
+def deblockify(data)
+  out = ""
+  size = data[0].ord
+  off = 0
+  while size != 0
+    out << data[off + 1 .. off + size]
+    off += size + 1
+    size = data[off].ord
+  end
+  out
+rescue
+  ''.b
+end
+
+# LZW-encode a pixel array read from a file, and compare with a properly generated
+# GIF to see if they match.
+def test(gif: nil, pixels: nil)
+  lzw = LZW.new(preset: :gif)
+  own = lzw.compress(File.binread(pixels))
+  gif = deblockify(File.binread(gif)[0x32B..-2])
+  puts own == gif
+  gif.chars.each_with_index{ |c, i|
+    if own[i] != c
+      puts "Breaks at byte #{i}"
+      break
+    end
+  }
+end
+
 lzw = LZW.new(preset: :gif, debug: 0)
-data = "\x28\xFF\xFF\xFF\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF".b
-res = lzw.compress(data)
-LZW.print_codes(res, 9)
+test(pixels: '../gifenc/pixels', gif: '../gifenc/example.gif')
