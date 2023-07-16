@@ -62,6 +62,35 @@ class LZW
     @buffer.pack('C*')
   end
 
+  # TODO: It feels convenient to use an array rather than a dictionary here, ¡
+  # since the codes are created in increasing order.
+  def decompress(data)
+    dict_init
+    bits = data.unpack('b*')[0]
+    off = 0
+
+    while off < len
+      # Parse code
+      code = bits[off ... off + @bits].reverse.to_i(2)
+      off += @bits
+
+      # Handle clear and stop codes, if present
+      if @clear && code == @clear
+        dict_init
+        next
+      end
+      break if @stop && code == @stop
+
+      # Update dictionary
+
+
+      
+    end
+
+
+
+  end
+
   private
 
   # Return first non-nil argument
@@ -197,6 +226,10 @@ class LZW
     puts if debug >= 2
   end
 
+  def parse_code
+
+  end
+
 end
 
 def blockify(data)
@@ -246,4 +279,4 @@ def test(gif: nil, pixels: nil)
 end
 
 lzw = LZW.new(preset: :gif, debug: 0)
-test(pixels: '../gifenc/pixels', gif: '../gifenc/example.gif')
+test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
