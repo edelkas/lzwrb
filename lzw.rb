@@ -1,15 +1,13 @@
 require 'byebug'
 
 class LZW
-  attr_accessor :debug
-
   # Class default values (no NIL's here!)
   @@min_bits = 8     # Minimum code bit length
-  @@max_bits = 12    # Maximum code bit length before rebuilding dictionary
+  @@max_bits = 12    # Maximum code bit length before rebuilding table
   @@lsb      = true  # Least significant bit first order
   @@codes    = true  # Use CLEAR and STOP codes (VALUES = 2 ** min_bits + {0, 1})
 
-  # PRint fixed-width LZW codes, for debugging purposes
+  # Print fixed-width LZW codes, for debugging purposes
   def self.print_codes(codes, width)
     puts "Hex Dec Binary"
     puts codes.unpack('b*')[0]
@@ -19,9 +17,9 @@ class LZW
               .join("\n")
   end
 
-  # TODO: Allow min_bits over 8 bits (dict keys will have to be packed)
+  # TODO: Allow min_bits over 8 bits (hash keys will have to be packed)
   # TODO: Optimize by using Trie rather than standard Hash
-  def initialize(preset: nil, min_bits: nil, max_bits: nil, lsb: nil, codes: nil, debug: 0)
+  def initialize(preset: nil, min_bits: nil, max_bits: nil, lsb: nil, codes: nil)
     # Parse params (preset and individual)
     params = parse_preset(preset)
     use_codes = find_arg(codes, params[:codes], @@codes)
@@ -32,63 +30,81 @@ class LZW
     @lsb      = find_arg(lsb, params[:lsb], @@lsb)
     @clear    = use_codes ? 1 << @min_bits : nil
     @stop     = use_codes ? @clear + 1     : nil
-
-    # Config params
-    @debug = debug
   end
 
   def compress(data)
-    # Initialize output and dictionary
-    init
-    dict_init
+    # Initialize output and table
+    init(true)
+    table_init
 
     # LZW-encode data
     buf = ''
     add_code(@clear) if !@clear.nil?
     data.each_char do |c|
       next_buf = buf + c
-      if dict_has(next_buf)
+      if table_has(next_buf)
         buf = next_buf
       else
-        add_code(@dict[buf])
-        dict_add(next_buf)
+        add_code(@table[buf])
+        table_add(next_buf)
         buf = c
       end
     end
-    add_code(@dict[buf])
+    add_code(@table[buf])
     add_code(@stop) if !@stop.nil?
 
     # Pack codes to binary string
     @buffer.pack('C*')
   end
 
-  # TODO: It feels convenient to use an array rather than a dictionary here, ¡
-  # since the codes are created in increasing order.
+  # Optimizations:
+  #   1) Unpack bits subsequently, rather than converting between strings and ints
+  #   2) Store old_code's string, rather than old_code index
   def decompress(data)
-    dict_init
+    # Setup
+    init(false)
+    table_init
     bits = data.unpack('b*')[0]
-    off = 0
+    len = bits.length
 
+    # Parse data
+    off = 0
+    out = ''.b
+    old_code = nil
     while off < len
       # Parse code
       code = bits[off ... off + @bits].reverse.to_i(2)
       off += @bits
 
       # Handle clear and stop codes, if present
-      if @clear && code == @clear
-        dict_init
+      if code == @clear && @clear
+        table_init
+        old_code = nil
         next
       end
-      break if @stop && code == @stop
+      break if code == @stop && @stop
 
-      # Update dictionary
+      # Handle initial code
+      if old_code.nil?
+        out << @table[code]
+        old_code = code
+        next
+      end
 
+      # Update table
+      if table_has(code)
+        table_add(@table[old_code] + @table[code][0])
+        out << @table[code]
+      else
+        table_add(@table[old_code] + @table[old_code][0])
+        out << @table[-1]
+      end
 
-      
+      # Prepare next iteration
+      old_code = code
     end
 
-
-
+    out
   end
 
   private
@@ -115,42 +131,53 @@ class LZW
 
   # Initialize buffers, needs to be called every time we execute a new
   # compression / decompression job
-  def init
-    @buffer = [] # Contains result of compression
-    @boff = 0    # BIT offset of last buffer byte, for packing
+  def init(compress)
+    @buffer = []         # Contains result of compression
+    @boff = 0            # BIT offset of last buffer byte, for packing
+    @compress = compress # Compressiong or decompression job
   end
 
-  # Initializes the dictionary, needs to be called at the start of each compression
-  # / decompression job, as well as whenever the dictionary gets full, which may
-  # happen many times in a single job
-  def dict_init
+  # Initializes the table, needs to be called at the start of each compression
+  # / decompression job, as well as whenever the table gets full, which may
+  # happen many times in a single job.
+  #
+  # During compression, the table is a hash. During decompression, the table
+  # is an array, making the job faster.
+  def table_init
     # Add symbols for all strings of length 1 (e.g. all 256 byte values)
     @key = (1 << @min_bits) - 1
-    @dict = (0 .. @key).map{ |i| [i.chr, i] }.to_h
+    @table = @compress ? (0 .. @key).map{ |i| [i.chr, i] }.to_h : (0 .. @key).to_a.map(&:chr)
 
     # Increment key index if clear/stop symbols are being used
-    @key += 1 if !@clear.nil?
-    @key += 1 if !@stop.nil?
+    if @clear
+      @key += 1
+      @table << '' if !@compress
+    end
+    if @stop
+      @key += 1
+      @table << '' if !@compress
+    end
+
     @bits = @key.bit_length
   end
 
-  def dict_has(str)
-    @dict.include?(str)
+  # TODO: Is it faster to call @key > val rather than @table.length > val? Test
+  def table_has(val)
+    @compress ? @table.include?(val) : @table.length > val
   end
 
-  # Add new code to the dictionary
-  def dict_add(str)
+  # Add new code to the table
+  def table_add(val)
     # Add code
     @key += 1
-    @dict[str] = @key
-    puts("<- Dict  %0#{(@bits.to_f / 4).ceil}X = %s" % [@key, str.bytes.map{ |b| "%02X" % b }.join(' ')]) if debug >= 1
+    @compress ? (@table[val] = @key) : (@table << val)
     
     # Check variable width code constraints
     if @key == 1 << @bits
       if @bits == @max_bits
-        add_code(@clear) if !@clear.nil?
-        dict_init
-        puts "Reset dictionary"
+        add_code(@clear) if @compress && !@clear.nil?
+        table_init
+        puts "Reset table"
       else
         @bits += 1
         puts "Increased code size to #{@bits}"
@@ -160,7 +187,6 @@ class LZW
 
   # TODO: Implement MSB method
   def add_code2(code)
-    puts("-> Added %0#{(@bits.to_f / 4).ceil}X" % code) if debug >= 1
     bits = @bits
 
     while bits > 0
@@ -185,22 +211,13 @@ class LZW
   end
 
   def add_code(code)
-    puts if debug >= 2
-    puts("-> Added %0#{(@bits.to_f / 4).ceil}X" % code) if debug >= 1
-    puts("Code: %0#{@bits}b" % code) if debug >= 2
     bits = @bits
 
     # Pack last byte
     if @boff > 0
-      puts("Boff: %d" % @boff) if debug >= 2
-      puts("Bits: %d" % bits) if debug >= 2
-      puts("Pack:  %08b" % [code << @boff & 0xFF]) if debug >= 2
-      puts("Last:  %08b" % @buffer[-1]) if debug >= 2
       @buffer[-1] |= code << @boff & 0xFF
-      puts("New:   %08b" % @buffer[-1]) if debug >= 2
       if @bits < 8 - @boff
         @boff += @bits
-        puts if debug >= 2
         return
       end
       bits -= 8 - @boff
@@ -210,24 +227,14 @@ class LZW
 
     # Add new bytes
     while bits > 0
-      puts("Boff: %d" % @boff) if debug >= 2
-      puts("Bits: %d" % bits) if debug >= 2
-      puts("Pack:  %08b" % [code & 0xFF]) if debug >= 2
       @buffer << (code & 0xFF)
       if bits < 8
         @boff = bits
-        puts if debug >= 2
         return
       end
       bits -= 8
       code >>= 8
     end
-
-    puts if debug >= 2
-  end
-
-  def parse_code
-
   end
 
 end
@@ -265,7 +272,7 @@ end
 
 # LZW-encode a pixel array read from a file, and compare with a properly generated
 # GIF to see if they match.
-def test(gif: nil, pixels: nil)
+def encode_test(gif: nil, pixels: nil)
   lzw = LZW.new(preset: :gif)
   own = lzw.compress(File.binread(pixels))
   gif = deblockify(File.binread(gif)[0x32B..-2])
@@ -278,5 +285,14 @@ def test(gif: nil, pixels: nil)
   }
 end
 
-lzw = LZW.new(preset: :gif, debug: 0)
-test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
+def decode_test(pixels: nil)
+  lzw = LZW.new(preset: :gif)
+  file = File.binread(pixels)
+  puts file == lzw.decompress(lzw.compress(file))
+end
+
+lzw = LZW.new(preset: :gif)
+#encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
+data = "\x28\xFF\xFF\xFF\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF".b
+File.binwrite('qwerty', data)
+decode_test(pixels: 'gifenc/pixels')
