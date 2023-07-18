@@ -6,7 +6,7 @@ class LZW
   @@min_bits = 8     # Minimum code bit length
   @@max_bits = 12    # Maximum code bit length before rebuilding table
   @@lsb      = true  # Least significant bit first order
-  @@codes    = true  # Use CLEAR and STOP codes (VALUES = 2 ** min_bits + {0, 1})
+  @@clear    = true  # Use CLEAR and STOP codes (VALUES = 2 ** min_bits + {0, 1})
 
   # Print fixed-width LZW codes, for debugging purposes
   def self.print_codes(codes, width)
@@ -20,17 +20,22 @@ class LZW
 
   # TODO: Allow min_bits over 8 bits (hash keys will have to be packed)
   # TODO: Optimize by using Trie rather than standard Hash
-  def initialize(preset: nil, min_bits: nil, max_bits: nil, lsb: nil, codes: nil)
+  # TODO: Allow for custom alphabets (default is [0...2**min_bits], but we could also have a few standard ones [A..Z], [0..9], etc)
+  # TODO: Implement MSB
+  # TODO: Make code-less work
+  # TODO: Add support for "early change"
+  # TODO: Remember to clean code (delete $codes1, etc)
+  def initialize(preset: nil, min_bits: nil, max_bits: nil, lsb: nil, clear: nil)
     # Parse params (preset and individual)
     params = parse_preset(preset)
-    use_codes = find_arg(codes, params[:codes], @@codes)
+    use_clear = find_arg(clear, params[:clear], @@clear)
 
     # Encoding params
     @min_bits = find_arg(min_bits, params[:min_bits], @@min_bits)
     @max_bits = find_arg(max_bits, params[:max_bits], @@max_bits)
     @lsb      = find_arg(lsb, params[:lsb], @@lsb)
-    @clear    = use_codes ? 1 << @min_bits : nil
-    @stop     = use_codes ? @clear + 1     : nil
+    @clear    = use_clear ? (1 << @min_bits) + 0 : nil
+    @stop     = use_clear ? (1 << @min_bits) + 1 : 1 << @min_bits
   end
 
   def compress(data)
@@ -52,15 +57,13 @@ class LZW
       end
     end
     add_code(@table[buf])
-    add_code(@stop) if !@stop.nil?
+    add_code(@stop)
 
     # Pack codes to binary string
     @buffer.pack('C*')
   end
 
-  # Optimizations:
-  #   1) Unpack bits subsequently, rather than converting between strings and ints
-  #   2) Store old_code's string, rather than old_code index
+  # Optimization? Unpack bits subsequently, rather than converting between strings and ints
   def decompress(data)
     # Setup
     init(false)
@@ -72,10 +75,11 @@ class LZW
     off = 0
     out = ''.b
     old_code = nil
-    while off < len
+    while off + @bits <= len
       # Parse code
       code = bits[off ... off + @bits].reverse.to_i(2)
       off += @bits
+      $codes2 << code.to_s(2).rjust(@bits, '0')
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
@@ -83,12 +87,16 @@ class LZW
         old_code = nil
         next
       end
-      break if code == @stop && @stop
+      break if code == @stop
 
       # Handle initial code
       if old_code.nil?
         out << @table[code]
         old_code = code
+        if !@clear
+          @key += 1
+          @bits = @key.bit_length
+        end
         next
       end
 
@@ -123,7 +131,7 @@ class LZW
         min_bits: 8,
         max_bits: 12,
         lsb:      true,
-        codes:    true
+        clear:    true
       }
     else
       {}
@@ -158,12 +166,11 @@ class LZW
       @key += 1
       @table << '' if !@compress
     end
-    @key += 1 if !@compress
+    @key += 1 if !@compress && @clear
 
     @bits = @key.bit_length
   end
 
-  # TODO: Is it faster to call @key > val rather than @table.length > val? Test
   def table_has(val)
     @compress ? @table.include?(val) : @key > val
   end
@@ -185,7 +192,6 @@ class LZW
     end
   end
 
-  # TODO: Implement MSB method
   def add_code2(code)
     bits = @bits
 
@@ -212,6 +218,7 @@ class LZW
 
   def add_code(code)
     bits = @bits
+    $codes1 << code.to_s(2).rjust(@bits, '0')
 
     # Pack last byte
     if @boff > 0
@@ -287,16 +294,20 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(pixels: nil)
-  lzw = LZW.new(preset: :gif)
+  lzw = LZW.new(preset: :gif, clear: false)
   file = File.binread(pixels)
   res = lzw.decompress(lzw.compress(file))
-  puts file == res
-  file.chars.each_with_index{ |c, i|
-    if res[i] != c
-      puts "Breaks at byte #{i}"
-      break
-    end
-  }
+  cmp = file == res
+  puts cmp
+  if !cmp
+    file.chars.each_with_index{ |c, i|
+      if res[i] != c
+        puts "Breaks at byte #{i}"
+        break
+      end
+    }
+    byebug
+  end
 end
 
 def bench_encode(pixels: nil)
@@ -315,6 +326,6 @@ end
 $codes1 = []
 $codes2 = []
 lzw = LZW.new(preset: :gif)
-encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
+#encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 decode_test(pixels: 'gifenc/pixels')
 #bench_encode(pixels: 'gifenc/pixels')
