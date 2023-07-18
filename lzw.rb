@@ -1,4 +1,5 @@
 require 'byebug'
+require 'benchmark'
 
 class LZW
   # Class default values (no NIL's here!)
@@ -75,7 +76,6 @@ class LZW
       # Parse code
       code = bits[off ... off + @bits].reverse.to_i(2)
       off += @bits
-      $codes2 << "%0#{@bits}b" % [code]
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
@@ -161,12 +161,11 @@ class LZW
     @key += 1 if !@compress
 
     @bits = @key.bit_length
-    puts "Init table"
   end
 
   # TODO: Is it faster to call @key > val rather than @table.length > val? Test
   def table_has(val)
-    @compress ? @table.include?(val) : @table.length > val
+    @compress ? @table.include?(val) : @key > val
   end
 
   # Add new code to the table
@@ -182,7 +181,6 @@ class LZW
         table_init if @compress || !@clear
       else
         @bits += 1
-        puts "Increased code size to #{@bits}"
       end
     end
   end
@@ -214,7 +212,6 @@ class LZW
 
   def add_code(code)
     bits = @bits
-    $codes1 << "%0#{@bits}b" % [code]
 
     # Pack last byte
     if @boff > 0
@@ -288,15 +285,36 @@ def encode_test(gif: nil, pixels: nil)
   }
 end
 
+# LZW-encode and decode a pixel array and see if they match
 def decode_test(pixels: nil)
   lzw = LZW.new(preset: :gif)
   file = File.binread(pixels)
-  puts file == lzw.decompress(lzw.compress(file))
+  res = lzw.decompress(lzw.compress(file))
+  puts file == res
+  file.chars.each_with_index{ |c, i|
+    if res[i] != c
+      puts "Breaks at byte #{i}"
+      break
+    end
+  }
+end
+
+def bench_encode(pixels: nil)
+  lzw = LZW.new(preset: :gif)
+  file = File.binread(pixels)
+  puts Benchmark.measure{ 10.times{ lzw.compress(file) } }
+end
+
+def bench_decode(pixels: nil)
+  lzw = LZW.new(preset: :gif)
+  file = File.binread(pixels)
+  cmp = lzw.compress(file)
+  puts Benchmark.measure{ 10.times{ lzw.decompress(cmp) } }
 end
 
 $codes1 = []
 $codes2 = []
 lzw = LZW.new(preset: :gif)
-#encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-data = "\x28\xFF\xFF\xFF\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF".b
+encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 decode_test(pixels: 'gifenc/pixels')
+#bench_encode(pixels: 'gifenc/pixels')
