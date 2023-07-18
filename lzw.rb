@@ -13,7 +13,7 @@ class LZW
     puts codes.unpack('b*')[0]
               .scan(/.{#{width}}/m)
               .map{ |c| c.reverse.to_i(2) }
-              .map{ |c| "%03X %03d %09b" % [c, c, c] }
+              .map{ |c| "%03X %03d %0#{width}b" % [c, c, c] }
               .join("\n")
   end
 
@@ -75,6 +75,7 @@ class LZW
       # Parse code
       code = bits[off ... off + @bits].reverse.to_i(2)
       off += @bits
+      $codes2 << "%0#{@bits}b" % [code]
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
@@ -157,8 +158,10 @@ class LZW
       @key += 1
       @table << '' if !@compress
     end
+    @key += 1 if !@compress
 
     @bits = @key.bit_length
+    puts "Init table"
   end
 
   # TODO: Is it faster to call @key > val rather than @table.length > val? Test
@@ -175,9 +178,8 @@ class LZW
     # Check variable width code constraints
     if @key == 1 << @bits
       if @bits == @max_bits
-        add_code(@clear) if @compress && !@clear.nil?
-        table_init
-        puts "Reset table"
+        add_code(@clear) if @compress && @clear
+        table_init if @compress || !@clear
       else
         @bits += 1
         puts "Increased code size to #{@bits}"
@@ -212,6 +214,7 @@ class LZW
 
   def add_code(code)
     bits = @bits
+    $codes1 << "%0#{@bits}b" % [code]
 
     # Pack last byte
     if @boff > 0
@@ -291,8 +294,9 @@ def decode_test(pixels: nil)
   puts file == lzw.decompress(lzw.compress(file))
 end
 
+$codes1 = []
+$codes2 = []
 lzw = LZW.new(preset: :gif)
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 data = "\x28\xFF\xFF\xFF\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF".b
-File.binwrite('qwerty', data)
 decode_test(pixels: 'gifenc/pixels')
