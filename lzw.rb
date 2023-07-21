@@ -20,11 +20,12 @@ class LZW
 
   # TODO: Allow min_bits over 8 bits (hash keys will have to be packed)
   # TODO: Optimize by using Trie rather than standard Hash
-  # TODO: Allow for custom alphabets (default is [0...2**min_bits], but we could also have a few standard ones [A..Z], [0..9], etc)
+  # TODO: Allow for custom alphabets (default is [0...2**min_bits], but we could also have a few standard ones [A..Z], [0..9], etc), make sure min_bits is enough to hold alphabet
   # TODO: Implement MSB
-  # TODO: Make code-less work
+  # TODO: Make clear code optional, and stop code optional is min_bits >= 8 (otherwise, you can't tell)
   # TODO: Add support for "early change"
   # TODO: Remember to clean code (delete $codes1, etc)
+  # TODO: Optimization for bit packing: If bit size is constant and equal to 8, 16, 32 or 64, then we can use Ruby's default pack/unpack functions, rather than packing bits ourselves
   def initialize(preset: nil, min_bits: nil, max_bits: nil, lsb: nil, clear: nil)
     # Parse params (preset and individual)
     params = parse_preset(preset)
@@ -102,11 +103,17 @@ class LZW
 
       # Update table
       if table_has(code)
-        table_add(@table[old_code] + @table[code][0])
+        fresh = table_add(@table[old_code] + @table[code][0])
         out << @table[code]
       else
-        table_add(@table[old_code] + @table[old_code][0])
+        fresh = table_add(@table[old_code] + @table[old_code][0])
         out << @table[-1]
+      end
+
+      # Table was initialized
+      if fresh
+        old_code = nil
+        next
       end
 
       # Prepare next iteration
@@ -175,21 +182,24 @@ class LZW
     @compress ? @table.include?(val) : @key > val
   end
 
-  # Add new code to the table
+  # Add new code to the table, return whether table was initialized
   def table_add(val)
     # Add code
     @key += 1
-    @compress ? (@table[val] = @key) : (@table << val)
+    @compress ? (@table[val] = @key; $table1 << [@key, val.bytes]) : (@table << val; $table2 << [@key, val.bytes])
     
     # Check variable width code constraints
     if @key == 1 << @bits
       if @bits == @max_bits
         add_code(@clear) if @compress && @clear
         table_init if @compress || !@clear
+        return true
       else
         @bits += 1
       end
     end
+
+    return false
   end
 
   def add_code2(code)
@@ -283,18 +293,21 @@ def encode_test(gif: nil, pixels: nil)
   lzw = LZW.new(preset: :gif)
   own = lzw.compress(File.binread(pixels))
   gif = deblockify(File.binread(gif)[0x32B..-2])
-  puts own == gif
-  gif.chars.each_with_index{ |c, i|
-    if own[i] != c
-      puts "Breaks at byte #{i}"
-      break
-    end
-  }
+  cmp = own == gif
+  puts cmp
+  if !cmp
+    gif.chars.each_with_index{ |c, i|
+      if own[i] != c
+        puts "Breaks at byte #{i}"
+        break
+      end
+    }
+  end
 end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(pixels: nil)
-  lzw = LZW.new(preset: :gif, clear: false)
+  lzw = LZW.new(preset: :gif, clear: true)
   file = File.binread(pixels)
   res = lzw.decompress(lzw.compress(file))
   cmp = file == res
@@ -325,6 +338,8 @@ end
 
 $codes1 = []
 $codes2 = []
+$table1 = []
+$table2 = []
 lzw = LZW.new(preset: :gif)
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 decode_test(pixels: 'gifenc/pixels')
