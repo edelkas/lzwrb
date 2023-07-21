@@ -1,0 +1,19 @@
+Features:
+- Allow min_bits over 8 bits (hash keys might have to be packed)
+- MSB (most significant bit packing order)
+- Support for "early change"
+- Option to disable table reinitialization (stop adding to table once full)
+- Deferred clear code (specially for full GIF decoding support)
+
+Optimizations:
+- Use Trie rather than standard Hash
+- Bit packing: If bit size is constant and equal to 8, 16, 32 or 64, use Ruby's default pack/unpack functions, rather than packing bits manually
+
+Development:
+- Remember to clean code (delete $codes1, etc)
+- Add Rake tests
+- Package as gem
+
+Test:
+- Custom alphabets (same text using binary vs textual)
+- Binary alphabets of weird sizes (very small, equal to power of 2, greater than 256, etc)
