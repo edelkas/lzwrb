@@ -1,10 +1,10 @@
 Features:
-- Allow min_bits over 8 bits (hash keys might have to be packed)
 - MSB (most significant bit packing order)
 - Support for "early change"
 - Option to disable table reinitialization (stop adding to table once full)
 - Deferred clear code (specially for full GIF decoding support)
 - Compatibility with UNIX compress/decompress, TIFF, PDF...
+- Rich / plain logs
 
 Optimizations:
 - Use Trie rather than standard Hash

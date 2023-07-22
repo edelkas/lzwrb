@@ -77,43 +77,46 @@ class LZW
     @binary = binary.nil? ? alphabet == BINARY : binary
 
     # Code bit size
-    if @bits
-      if !@bits.is_a?(Integer) || @bits < 1
+    if bits
+      if !bits.is_a?(Integer) || bits < 1
         err('Code size should be a positive integer.')
         exit
       else
-        @min_bits = @bits
-        @max_bits = @bits
+        @min_bits = bits
+        @max_bits = bits
       end
     else
       @min_bits = find_arg(min_bits, params[:min_bits], @@min_bits)
       @max_bits = find_arg(max_bits, params[:max_bits], @@max_bits)
       if @max_bits < @min_bits
-        warn("Max code size (#{@max_bits}) should be higher than min code size (#{@min_bits}). Changed max code size to #{@min_bits}.")
+        warn("Max code size (#{@max_bits}) should be higher than min code size (#{@min_bits}): changed max code size to #{@min_bits}.")
         @max_bits = @min_bits
       end
     end
 
+    # Clear and stop codes
+    use_clear = find_arg(clear, params[:clear], @@clear)
+    use_stop = find_arg(stop, params[:stop], @@stop)
+    if !use_stop && @min_bits < 8
+      use_stop = true
+      warn("Stop codes are necessary for code sizes below 8 bits to prevent ambiguity: enabled stop codes.")
+    end
+
     # Alphabet length check
-    if @alphabet.size > 1 << @max_bits
+    extra = (use_clear ? 1 : 0) + (use_stop ? 1 : 0)
+    if (@alphabet.size + extra) > 1 << @max_bits
       if @binary
-        @alphabet.take!(1 << @max_bits)
-        warn("Truncated binary alphabet to #{@max_bits} bits.")
+        @alphabet = @alphabet.take((1 << @max_bits) - extra)
+        warn("Truncated binary alphabet to #{(1 << @max_bits) - extra} entries.")
       else
-        @min_bits = @alphabet.size.bit_length
-        @max_bits = @min_bits if @max_bits < @min_bits
-        warn("Min code size needs to fit the alphabet. Increased code sizes to #{@min_bits} - #{@max_bits}.")
+        @max_bits = (@alphabet.size + extra).bit_length
+        warn("Max code size needs to fit the alphabet (and clear & stop codes, if used): increased to #{@max_bits} bits.")
       end
     end
 
     # Clear and stop codes
     idx = @alphabet.size - 1
-    @clear = find_arg(clear, params[:clear], @@clear) ? idx += 1 : nil
-    use_stop = find_arg(stop, params[:stop], @@stop)
-    if !use_stop && @min_bits < 8
-      use_stop = true
-      warn("Stop codes are necessary for code sizes below 8 bits to prevent ambiguity. Using stop codes.")
-    end
+    @clear = use_clear ? idx += 1 : nil
     @stop = use_stop ? idx += 1 : nil
 
     # Least/most significant bit packing order
@@ -122,7 +125,7 @@ class LZW
 
   def encode(data)
     # Log
-    log("LZW-encoding #{format_size(data.bytesize)} with #{format_params}.")
+    log("Encoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -153,12 +156,14 @@ class LZW
     log("Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
     log("Encoded data: #{format_size(res.bytesize)} (#{"%5.2f%%" % [100 * (1 - res.bytesize.to_f / data.bytesize)]} compression).")
     res
+  rescue => e
+    lex(e, 'Encoding error', true)
   end
 
   # Optimization? Unpack bits subsequently, rather than converting between strings and ints
   def decode(data)
     # Log
-    log("LZW-decoding #{format_size(data.bytesize)} with #{format_params}.")
+    log("Decoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -220,43 +225,21 @@ class LZW
     log("Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
     log("Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
     out
+  rescue => e
+    lex(e, 'Decoding error', true)
   end
 
   private
 
-  def format_params
-    log_bits = @min_bits == @max_bits ? @min_bits : "#{@min_bits}-#{@max_bits}"
-    log_codes = @clear ? (@stop ? 'CLEAR & STOP codes' : 'CLEAR codes') : (@stop ? 'STOP codes' : 'no special codes')
-    log_lsb = @lsb ? 'LSB' : 'MSB'
-    log_binary = @binary ? 'binary' : 'textual'
-    "#{log_bits} bit codes, #{log_lsb} packing, #{log_codes}, #{log_binary} mode"
+  # Initialize buffers, needs to be called every time we execute a new
+  # compression / decompression job
+  def init(compress)
+    @buffer = []         # Contains result of compression
+    @boff = 0            # BIT offset of last buffer byte, for packing
+    @compress = compress # Compressiong or decompression job
   end
 
-  def format_size(sz)
-    mag = Math.log(sz, 1024).to_i.clamp(0, 3)
-    unit = ['B', 'KB', 'MB', 'GB']
-    "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
-  end
-
-  def log(txt, level = 3)
-    return if level > @verbosity
-    puts "#{Time.now.strftime('[%H:%M:%S.%L]')} #{txt}"
-  end
-
-  def err(txt)
-    symbol = "\x1B[31m\x1B[1m✗\x1B[0m"
-    log("#{symbol} #{txt}", 1)
-  end
-
-  def warn(txt)
-    symbol = "\x1B[33m\x1B[1m!\x1B[0m"
-    log("#{symbol} #{txt}", 2)
-  end
-
-  def dbg(txt)
-    symbol = "\x1B[90m\x1B[1mD\x1B[0m"
-    log("#{symbol} #{txt}", 4)
-  end
+  # < --------------------------- PARSING METHODS ---------------------------- >
 
   # Return first non-nil argument
   def find_arg(*args)
@@ -279,13 +262,39 @@ class LZW
     end
   end
 
-  # Initialize buffers, needs to be called every time we execute a new
-  # compression / decompression job
-  def init(compress)
-    @buffer = []         # Contains result of compression
-    @boff = 0            # BIT offset of last buffer byte, for packing
-    @compress = compress # Compressiong or decompression job
+  # < --------------------------- LOGGING METHODS ---------------------------- >
+
+  def format_params
+    log_bits = @min_bits == @max_bits ? @min_bits : "#{@min_bits}-#{@max_bits}"
+    log_codes = @clear ? (@stop ? 'CLEAR & STOP codes' : 'CLEAR codes') : (@stop ? 'STOP codes' : 'no special codes')
+    log_lsb = @lsb ? 'LSB' : 'MSB'
+    log_binary = @binary ? 'binary' : 'textual'
+    "#{log_bits} bit codes, #{log_lsb} packing, #{log_codes}, #{log_binary} mode"
   end
+
+  def format_size(sz)
+    mag = Math.log(sz, 1024).to_i.clamp(0, 3)
+    unit = ['B', 'KB', 'MB', 'GB']
+    "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
+  end
+
+
+  def log(txt, level = 3)
+    return if level > @verbosity
+    puts "#{Time.now.strftime('[%H:%M:%S.%L]')} LZW #{txt}"
+  end
+
+  def err(txt)  log("\x1B[31m\x1B[1m✗\x1B[0m \x1B[31m#{txt}\x1B[0m", 1) end
+  def warn(txt) log("\x1B[33m\x1B[1m!\x1B[0m \x1B[33m#{txt}\x1B[0m", 2) end
+  def dbg(txt)  log("\x1B[90m\x1B[1mD\x1B[0m \x1B[90m#{txt}\x1B[0m", 4) end
+
+  def lex(e, msg = '', fatal = false)
+    err("#{msg}: #{e}")
+    dbg(e.backtrace.unshift('Backtrace:').join("\n"))
+    exit(1) if fatal
+  end
+
+    # < --------------------------- TABLE METHODS ---------------------------- >
 
   # Initializes the table, needs to be called at the start of each compression
   # / decompression job, as well as whenever the table gets full, which may
@@ -295,21 +304,23 @@ class LZW
   # is an array, making the job faster.
   def table_init
     # Add symbols for all strings of length 1 (e.g. all 256 byte values)
-    @key = (1 << @min_bits) - 1
-    @table = @compress ? (0 .. @key).map{ |i| [i.chr, i] }.to_h : (0 .. @key).to_a.map(&:chr)
+    @key = @alphabet.size - 1
+    @table = @compress ? @alphabet.each_with_index.to_h : @alphabet.dup
 
     # Increment key index if clear/stop symbols are being used
-    if @clear
-      @key += 1
-      @table << '' if !@compress
-    end
-    if @stop
-      @key += 1
-      @table << '' if !@compress
-    end
+    @key += 1 if @clear
+    @key += 1 if @stop
     @key += 1 if !@compress && @clear
 
-    @bits = @key.bit_length
+    @bits = [@key.bit_length, @min_bits].max
+    if !$done1 && @compress
+      $done1 = true
+      #byebug
+    end
+    if !$done2 && !@compress
+      $done2 = true
+      #byebug
+    end
   end
 
   def table_has(val)
@@ -336,6 +347,8 @@ class LZW
     return false
   end
 
+    # < ------------------------- ENCODING METHODS --------------------------- >
+
   def add_code2(code)
     bits = @bits
 
@@ -361,6 +374,7 @@ class LZW
   end
 
   def add_code(code)
+    raise 'Found character not in alphabet' if code.nil?
     bits = @bits
     $codes1 << code.to_s(2).rjust(@bits, '0')
 
@@ -440,9 +454,11 @@ def encode_test(gif: nil, pixels: nil)
 end
 
 # LZW-encode and decode a pixel array and see if they match
-def decode_test(pixels: nil)
-  lzw = LZW.new(preset: :gif)
-  file = File.binread(pixels)
+def decode_test(input: nil)
+  bits = 9
+  max = [(1 << bits) - 1, 256].min
+  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug)
+  file = input ? File.binread(input) : (64 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
   puts cmp
@@ -474,7 +490,9 @@ $codes1 = []
 $codes2 = []
 $table1 = []
 $table2 = []
+$done1 = false
+$done2 = false
 lzw = LZW.new(preset: :gif)
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-decode_test(pixels: 'gifenc/pixels')
+decode_test(input: nil)
 #bench_decode(pixels: 'gifenc/pixels')
