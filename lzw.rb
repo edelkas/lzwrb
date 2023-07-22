@@ -122,7 +122,7 @@ class LZW
 
   def encode(data)
     # Log
-    log("LZW-encoding with #{format_params}.")
+    log("LZW-encoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -149,14 +149,16 @@ class LZW
     res = @buffer.pack('C*')
 
     # Return
-    log("Job finished in #{"%.3fs" % [Time.now - stime]}.")
+    ttime = Time.now - stime
+    log("Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("Encoded data: #{format_size(res.bytesize)} (#{"%5.2f%%" % [100 * (1 - res.bytesize.to_f / data.bytesize)]} compression).")
     res
   end
 
   # Optimization? Unpack bits subsequently, rather than converting between strings and ints
   def decode(data)
     # Log
-    log("LZW-decoding with #{format_params}.")
+    log("LZW-decoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -214,7 +216,9 @@ class LZW
     end
 
     # Return
-    log("Job finished in #{"%.3fs" % [Time.now - stime]}.")
+    ttime = Time.now - stime
+    log("Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
     out
   end
 
@@ -226,6 +230,12 @@ class LZW
     log_lsb = @lsb ? 'LSB' : 'MSB'
     log_binary = @binary ? 'binary' : 'textual'
     "#{log_bits} bit codes, #{log_lsb} packing, #{log_codes}, #{log_binary} mode"
+  end
+
+  def format_size(sz)
+    mag = Math.log(sz, 1024).to_i.clamp(0, 3)
+    unit = ['B', 'KB', 'MB', 'GB']
+    "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
   end
 
   def log(txt, level = 3)

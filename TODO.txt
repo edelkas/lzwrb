@@ -4,6 +4,7 @@ Features:
 - Support for "early change"
 - Option to disable table reinitialization (stop adding to table once full)
 - Deferred clear code (specially for full GIF decoding support)
+- Compatibility with UNIX compress/decompress, TIFF, PDF...
 
 Optimizations:
 - Use Trie rather than standard Hash
