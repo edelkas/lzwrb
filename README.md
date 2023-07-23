@@ -6,8 +6,8 @@ lzwrb is a Ruby gem for LZW encoding and decoding. Main features:
 
 * Pure Ruby, no dependencies.
 * Highly configurable (constant/variable code length, bit packing order...). See [Configuration](#configuration).
-* Compatible with many LZW specifications, including GIF.
-* Reasonable fast for pure Ruby (see [Benchmarks](#benchmarks)).
+* Compatible with many LZW specifications, including GIF (see [Presets](#presets)).
+* Reasonably fast for pure Ruby (see [Benchmarks](#benchmarks)).
 
 ## Table of contents
 
@@ -80,9 +80,28 @@ Note: The output can be reduced or suppressed (or detailed), see [Verbosity](#ve
 
 ## Configuration
 
-Most of the usual options for the LZW algorithm can be configured individually by setting the appropriate keyword arguments in the constructor. Additionally, there are several presets available, i.e. a selection of setting values with a specific purpose (e.g. best compression, fastest encoding, compatible with GIF...).
+Most of the usual options for the LZW algorithm can be configured individually by supplying the appropriate keyword arguments in the constructor. Additionally, there are several presets available, i.e. a selection of setting values with a specific purpose (e.g. best compression, fastest encoding, compatible with GIF...). For example:
+
+```ruby
+lzw1 = LZW.new(preset: :gif)
+lzw2 = LZW.new(min_bits: 8, max_bits: 16)
+```
 
 Individual settings may be used together with a preset, in which case the individual setting takes preference over the value that may be set by the preset, thus enabling the fine-tuning of a specific preset.
+
+The following options are available:
+
+Argument | Type | Description
+--- | --- | ---
+`:preset` | Symbol | Specifies which preset (set of options) to use. See [Presets](#presets).
+`:bits` | Integer | Code length in bits, for constant length mode. See [Code length](#code-length).
+`:min_bits` | Integer | Minimum code length in bits, for variable length mode. See [Code length](#code-length).
+`:max_bits` | Integer | Maximum code length in bits, for variable length mode. See [Code length](#code-length).
+`:clear` | Boolean | Whether to use Clear codes or not. See [Clear & Stop codes](#clear--stop-codes).
+`:stop` | Boolean | Whether to use Stop codes or not. See [Clear & Stop codes](#clear--stop-codes).
+`:lsb` | Boolean | Whether to use LSB or MSB (least/most significant bit packing order). See [Packing order](#packing-order).
+`:alphabet` | Array | List of characters that compose the data to encode. See [Custom alphabets](#custom-alphabets).
+`:verbosity` | Symbol | Specifies the amount of detail to print to the console. See [Verbosity](#verbosity).
 
 ### Presets
 
@@ -139,4 +158,5 @@ Eventually I'd like to have the following extra features tested and implemented:
 
 ## Notes
 
-* Concurrency: The `LZW` objects are _not_ thread safe. If you want to encode/decode in parallel, you must create a separate object for each thread, even if they use the same exact configuration.
+* **Concurrency**: The `LZW` objects are _not_ thread safe. If you want to encode/decode in parallel, you must create a separate object for each thread, even if they use the same exact configuration.
+* **Custom alphabets**: If you change the default alphabet (binary), ensure the data to be encoded can be expressed solely with that alphabet, or alternatively, specify the `safe` option to the encoder.

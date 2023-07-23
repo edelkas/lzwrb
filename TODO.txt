@@ -1,5 +1,6 @@
 - Add "safe" arg to constructor that does first pass and checks whether alphabet
-  contains all characters in data
+  contains all characters in data, UPDATE README when done
+- Binary vs textual, UPDATE README when done
 
 - Remember to clean code (delete $codes1, etc)
 - Add Rake tests
