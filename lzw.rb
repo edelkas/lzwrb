@@ -257,6 +257,22 @@ class LZW
         clear:    true,
         stop:     true
       }
+    when :fast
+      {
+        min_bits: 16,
+        max_bits: 16,
+        lsb:      true,
+        clear:    false,
+        stop:     false
+      }
+    when :best
+      {
+        min_bits: 8,
+        max_bits: 16,
+        lsb:      true,
+        clear:    false,
+        stop:     false
+      }
     else
       {}
     end

@@ -1,16 +1,6 @@
-Features:
-- MSB (most significant bit packing order)
-- Support for "early change"
-- Option to disable table reinitialization (stop adding to table once full)
-- Deferred clear code (specially for full GIF decoding support)
-- Compatibility with UNIX compress/decompress, TIFF, PDF...
-- Rich / plain logs
+- Add "safe" arg to constructor that does first pass and checks whether alphabet
+  contains all characters in data
 
-Optimizations:
-- Use Trie rather than standard Hash
-- Bit packing: If bit size is constant and equal to 8, 16, 32 or 64, use Ruby's default pack/unpack functions, rather than packing bits manually
-
-Development:
 - Remember to clean code (delete $codes1, etc)
 - Add Rake tests
 - Package as gem
