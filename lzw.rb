@@ -31,6 +31,7 @@ class LZW
   @@lsb      = true  # Least significant bit first order
   @@clear    = true  # Use CLEAR codes
   @@stop     = true  # Use STOP codes
+  @@deferred = false # Use deferred CLEAR codes
 
   # Print fixed-width LZW codes, for debugging purposes
   def self.print_codes(codes, width)
@@ -52,6 +53,7 @@ class LZW
       lsb:       nil,     # Use least or most significant bit packing
       clear:     nil,     # Use clear codes every time the table gets reinitialized
       stop:      nil,     # Use stop codes at the end of the encoding
+      deferred:  nil,     # Use deferred clear codes
       verbosity: :normal  # Verbosity level of the encoder
     )
     # Parse preset
@@ -118,6 +120,7 @@ class LZW
     idx = @alphabet.size - 1
     @clear = use_clear ? idx += 1 : nil
     @stop = use_stop ? idx += 1 : nil
+    @deferred = find_arg(deferred, params[:deferred], @@deferred)
 
     # Least/most significant bit packing order
     @lsb = find_arg(lsb, params[:lsb], @@lsb)
@@ -203,6 +206,7 @@ class LZW
 
       # Update table
       if table_has(code)
+        byebug if @table[old_code].nil? || @table[code].nil?
         fresh = table_add(@table[old_code] + @table[code][0])
         out << @table[code]
       else
@@ -226,7 +230,8 @@ class LZW
     log("Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
     out
   rescue => e
-    lex(e, 'Decoding error', true)
+    lex(e, 'Decoding error', false)
+    byebug
   end
 
   private
@@ -255,7 +260,8 @@ class LZW
         max_bits: 12,
         lsb:      true,
         clear:    true,
-        stop:     true
+        stop:     true,
+        deferred: true
       }
     when :fast
       {
@@ -319,6 +325,7 @@ class LZW
   # During compression, the table is a hash. During decompression, the table
   # is an array, making the job faster.
   def table_init
+    @compress ? $init1 << $codes1.size : $init2 << $codes2.size
     # Add symbols for all strings of length 1 (e.g. all 256 byte values)
     @key = @alphabet.size - 1
     @table = @compress ? @alphabet.each_with_index.to_h : @alphabet.dup
@@ -353,7 +360,7 @@ class LZW
     if @key == 1 << @bits
       if @bits == @max_bits
         add_code(@clear) if @compress && @clear
-        table_init if @compress || !@clear
+        table_init if @compress || !@clear || @deferred
         return true
       else
         @bits += 1
@@ -472,7 +479,7 @@ end
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(input: nil)
   bits = 9
-  max = [(1 << bits) - 1, 256].min
+  max = [1 << bits, 256].min - 2
   lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug)
   file = input ? File.binread(input) : (64 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
@@ -508,6 +515,8 @@ $table1 = []
 $table2 = []
 $done1 = false
 $done2 = false
+$init1 = []
+$init2 = []
 lzw = LZW.new(preset: :gif)
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 decode_test(input: nil)

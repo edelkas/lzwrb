@@ -80,11 +80,12 @@ Note: The output can be reduced or suppressed (or detailed), see [Verbosity](#ve
 
 ## Configuration
 
-Most of the usual options for the LZW algorithm can be configured individually by supplying the appropriate keyword arguments in the constructor. Additionally, there are several presets available, i.e. a selection of setting values with a specific purpose (e.g. best compression, fastest encoding, compatible with GIF...). For example:
+Most of the usual options for the LZW algorithm can be configured individually by supplying the appropriate keyword arguments in the constructor. Additionally, there are several presets available, i.e., a selection of setting values with a specific purpose (e.g. best compression, fastest encoding, compatible with GIF...). Examples:
 
 ```ruby
 lzw1 = LZW.new(preset: :gif)
 lzw2 = LZW.new(min_bits: 8, max_bits: 16)
+lzw3 = LZW.new(preset: :fast, clear: true, stop: true)
 ```
 
 Individual settings may be used together with a preset, in which case the individual setting takes preference over the value that may be set by the preset, thus enabling the fine-tuning of a specific preset.
@@ -105,13 +106,15 @@ Argument | Type | Description
 
 ### Presets
 
+Presets specify the value for several configuration options at the same time, with a specific goal in mind (typically, to optimize a certain aspect, or to be compatible with certain format). They can be used together with individual settings, in which case the latter take preference.
+
 The following presets are currently available:
 
 Preset | Description
 --- | ---
-`:best` | Aimed at best compression, uses variable code length (8-16 bits), no special codes and LSB packing
-`:fast` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing
-`:gif` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing
+`:best` | Aimed at best compression, uses variable code length (8-16 bits), no special codes and LSB packing.
+`:fast` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing.
+`:gif` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
 
 ### Code length
 
