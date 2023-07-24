@@ -116,11 +116,19 @@ Preset | Description
 `:fast` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing.
 `:gif` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
 
+Their descriptive names are based on the average case. However, it is possible on strange samples for the `:best` compression to actually be worse than many other settings.
+
+For example, on highly random samples, most patterns are very short, perhaps only 1 or 2 characters long, and thus substituting them with a long code can end up being counterproductive. In these cases, a smaller code length might be preferable. In fact, on this kind of data LZW encoding may end up increasing the size, and thus not being suitable at all.
+
 ### Code length
 
 ### Packing order
 
 ### Clear & Stop codes
+
+Mencionar que estos codigos no son apropiados para tablas pequeñas (con pocos bits), o en general, cuando se busca comprimir mucho, porque añaden mucho overhead. Solo son apropiados para dos cosas:
+- Buscar compatibilidad con formatos que la usan, como GIF
+- Codificar inteligentemente, reseteando la tabla cuando los patrones cambian y una nueva mejoraria su eficiencia (reduciendo el tamaño de los codigos). Nuestro encoder no hace esto, con lo cual no es una razon util a no ser que se customice el programa. 
 
 ### Custom alphabets
 

@@ -27,10 +27,10 @@ class LZW
 
   # Class default values (no NIL's here!)
   @@min_bits = 8     # Minimum code bit length
-  @@max_bits = 12    # Maximum code bit length before rebuilding table
+  @@max_bits = 16    # Maximum code bit length before rebuilding table
   @@lsb      = true  # Least significant bit first order
-  @@clear    = true  # Use CLEAR codes
-  @@stop     = true  # Use STOP codes
+  @@clear    = false # Use CLEAR codes
+  @@stop     = false # Use STOP codes
   @@deferred = false # Use deferred CLEAR codes
 
   # Print fixed-width LZW codes, for debugging purposes
@@ -108,8 +108,8 @@ class LZW
     extra = (use_clear ? 1 : 0) + (use_stop ? 1 : 0)
     if (@alphabet.size + extra) > 1 << @max_bits
       if @binary
-        @alphabet = @alphabet.take((1 << @max_bits) - extra - 1)
-        warn("Truncated binary alphabet to #{(1 << @max_bits) - extra - 1} entries.")
+        @alphabet = @alphabet.take((1 << @max_bits - 1))
+        warn("Using #{@max_bits - 1} bit binary alphabet (#{(1 << @max_bits - 1)} entries).")
       else
         @max_bits = (@alphabet.size + extra).bit_length
         warn("Max code size needs to fit the alphabet (and clear & stop codes, if used): increased to #{@max_bits} bits.")
@@ -194,22 +194,13 @@ class LZW
       end
       break if code == @stop && @stop
 
-      # Handle initial code
-      if old_code.nil?
+      # Handle regular codes
+      if old_code.nil?        # Initial code
         out << @table[code]
-        old_code = code
-        if !@clear
-          @key += 1
-          @bits = @key.bit_length
-        end
-        next
-      end
-
-      # Update table
-      if table_has(code)
+      elsif table_has(code)   # Existing code
         out << @table[code]
         table_add(@table[old_code] + @table[code][0])
-      else
+      else                    # New code
         out << @table[old_code] + @table[old_code][0]
         table_add(@table[old_code] + @table[old_code][0])
       end
@@ -233,9 +224,10 @@ class LZW
   # Initialize buffers, needs to be called every time we execute a new
   # compression / decompression job
   def init(compress)
-    @buffer = []         # Contains result of compression
-    @boff = 0            # BIT offset of last buffer byte, for packing
-    @compress = compress # Compressiong or decompression job
+    @buffer = []              # Contains result of compression
+    @boff = 0                 # BIT offset of last buffer byte, for packing
+    @compress = compress      # Compression or decompression job
+    @step = @compress ? 0 : 1 # Decoder is always 1 step behind the encoder
   end
 
   # < --------------------------- PARSING METHODS ---------------------------- >
@@ -333,7 +325,7 @@ class LZW
       @key += 1
       @table << '' if !@compress
     end
-    @key += 1 if !@compress && @clear
+    #@key += 1 if !@compress && @clear
 
     @bits = [@key.bit_length, @min_bits].max
     if !$done1 && @compress
@@ -347,13 +339,13 @@ class LZW
   end
 
   def table_has(val)
-    @compress ? @table.include?(val) : @key > val
+    @compress ? @table.include?(val) : @key >= val
   end
 
   # Add new code to the table
   def table_add(val)
     # Table is full
-    return if @key >= 1 << @max_bits
+    #return if @key + 1 >= 1 << @max_bits
 
     # Add code and increase index
     @key += 1
@@ -362,7 +354,7 @@ class LZW
 
   # Check table size, and increase code length or reinitialize if needed
   def table_check
-    if @key == 1 << @bits
+    if @key + @step == 1 << @bits
       if @bits == @max_bits
         add_code(@clear) if @compress && @clear
         refresh = @compress || !@clear || !@deferred
@@ -483,9 +475,9 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(input: nil)
-  bits = 10
-  max = [1 << bits, 256].min - 3
-  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: false, verbosity: :debug)
+  bits = 8
+  max = [1 << bits, 128].min - 2
+  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug)
   file = input ? File.binread(input) : (64 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
