@@ -108,8 +108,8 @@ class LZW
     extra = (use_clear ? 1 : 0) + (use_stop ? 1 : 0)
     if (@alphabet.size + extra) > 1 << @max_bits
       if @binary
-        @alphabet = @alphabet.take((1 << @max_bits) - extra)
-        warn("Truncated binary alphabet to #{(1 << @max_bits) - extra} entries.")
+        @alphabet = @alphabet.take((1 << @max_bits) - extra - 1)
+        warn("Truncated binary alphabet to #{(1 << @max_bits) - extra - 1} entries.")
       else
         @max_bits = (@alphabet.size + extra).bit_length
         warn("Max code size needs to fit the alphabet (and clear & stop codes, if used): increased to #{@max_bits} bits.")
@@ -145,6 +145,7 @@ class LZW
       else
         add_code(@table[buf])
         table_add(next_buf)
+        table_check()
         buf = c
       end
     end
@@ -206,22 +207,15 @@ class LZW
 
       # Update table
       if table_has(code)
-        byebug if @table[old_code].nil? || @table[code].nil?
-        fresh = table_add(@table[old_code] + @table[code][0])
         out << @table[code]
+        table_add(@table[old_code] + @table[code][0])
       else
-        fresh = table_add(@table[old_code] + @table[old_code][0])
-        out << @table[-1]
-      end
-
-      # Table was initialized
-      if fresh
-        old_code = nil
-        next
+        out << @table[old_code] + @table[old_code][0]
+        table_add(@table[old_code] + @table[old_code][0])
       end
 
       # Prepare next iteration
-      old_code = code
+      old_code = table_check ? nil : code
     end
 
     # Return
@@ -331,8 +325,14 @@ class LZW
     @table = @compress ? @alphabet.each_with_index.to_h : @alphabet.dup
 
     # Increment key index if clear/stop symbols are being used
-    @key += 1 if @clear
-    @key += 1 if @stop
+    if @clear
+      @key += 1
+      @table << '' if !@compress
+    end
+    if @stop
+      @key += 1
+      @table << '' if !@compress
+    end
     @key += 1 if !@compress && @clear
 
     @bits = [@key.bit_length, @min_bits].max
@@ -350,23 +350,28 @@ class LZW
     @compress ? @table.include?(val) : @key > val
   end
 
-  # Add new code to the table, return whether table was initialized
+  # Add new code to the table
   def table_add(val)
-    # Add code
+    # Table is full
+    return if @key >= 1 << @max_bits
+
+    # Add code and increase index
     @key += 1
     @compress ? (@table[val] = @key; $table1 << [@key, val.bytes]) : (@table << val; $table2 << [@key, val.bytes])
-    
-    # Check variable width code constraints
+  end
+
+  # Check table size, and increase code length or reinitialize if needed
+  def table_check
     if @key == 1 << @bits
       if @bits == @max_bits
         add_code(@clear) if @compress && @clear
-        table_init if @compress || !@clear || @deferred
-        return true
+        refresh = @compress || !@clear || !@deferred
+        table_init if refresh
+        return refresh
       else
         @bits += 1
       end
     end
-
     return false
   end
 
@@ -478,9 +483,9 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(input: nil)
-  bits = 9
-  max = [1 << bits, 256].min - 2
-  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug)
+  bits = 10
+  max = [1 << bits, 256].min - 3
+  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: false, verbosity: :debug)
   file = input ? File.binread(input) : (64 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res

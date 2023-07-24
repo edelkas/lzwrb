@@ -1,6 +1,7 @@
 - Add "safe" arg to constructor that does first pass and checks whether alphabet
   contains all characters in data, UPDATE README when done
 - Binary vs textual, UPDATE README when done
+- Warning if too few entries are left in the initial table (slow...)
 
 - Remember to clean code (delete $codes1, etc)
 - Add Rake tests
