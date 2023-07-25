@@ -180,16 +180,18 @@ class LZW
     off = 0
     out = ''.b
     old_code = nil
-    while off + @bits <= len
+    width = @bits
+    while off + width <= len
       # Parse code
-      code = bits[off ... off + @bits].reverse.to_i(2)
-      off += @bits
-      $codes2 << code.to_s(2).rjust(@bits, '0')
+      code = bits[off ... off + width].reverse.to_i(2)
+      off += width
+      $codes2 << code.to_s(2).rjust(width, '0')
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
         table_init
         old_code = nil
+        width = @bits
         next
       end
       break if code == @stop && @stop
@@ -207,6 +209,7 @@ class LZW
 
       # Prepare next iteration
       old_code = table_check ? nil : code
+      width = @bits unless !old_code && @clear
     end
 
     # Return
@@ -282,7 +285,7 @@ class LZW
 
   def format_size(sz)
     mag = Math.log(sz, 1024).to_i.clamp(0, 3)
-    unit = ['B', 'KB', 'MB', 'GB']
+    unit = ['B', 'KiB', 'MiB', 'GiB']
     "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
   end
 
@@ -325,17 +328,8 @@ class LZW
       @key += 1
       @table << '' if !@compress
     end
-    #@key += 1 if !@compress && @clear
 
     @bits = [@key.bit_length, @min_bits].max
-    if !$done1 && @compress
-      $done1 = true
-      #byebug
-    end
-    if !$done2 && !@compress
-      $done2 = true
-      #byebug
-    end
   end
 
   def table_has(val)
@@ -349,7 +343,7 @@ class LZW
 
     # Add code and increase index
     @key += 1
-    @compress ? (@table[val] = @key; $table1 << [@key, val.bytes]) : (@table << val; $table2 << [@key, val.bytes])
+    @compress ? (@table[val] = @key; $table1 << [@key, val]) : (@table << val; $table2 << [@key, val])
   end
 
   # Check table size, and increase code length or reinitialize if needed
@@ -458,7 +452,7 @@ end
 # LZW-encode a pixel array read from a file, and compare with a properly generated
 # GIF to see if they match.
 def encode_test(gif: nil, pixels: nil)
-  lzw = LZW.new(preset: :gif, clear: false)
+  lzw = LZW.new(preset: :gif)
   own = lzw.encode(File.binread(pixels))
   gif = deblockify(File.binread(gif)[0x32B..-2])
   cmp = own == gif
@@ -473,12 +467,52 @@ def encode_test(gif: nil, pixels: nil)
   end
 end
 
+def test(data, alphabet, min_bits, max_bits)
+  [true, false].each{ |clear|
+    [true, false].each{ |stop|
+      $codes1 = []
+      $codes2 = []
+      $table1 = []
+      $table2 = []
+      $init1 = []
+      $init2 = []
+      
+      lzw = LZW.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
+      t = Time.now
+      cmp = lzw.encode(data)
+      t1 = Time.now - t
+      t = Time.now
+      res = lzw.decode(cmp)
+      t2 = Time.now - t
+      $times[min_bits][max_bits] << [t1, t2]
+      puts "Fail: #{min_bits}-#{max_bits}, #{clear}:#{stop}, #{alphabet.size}" if res != data
+    }
+  }
+end
+
+def tests
+  # Constant length
+  (2..24).each{ |min_bits|
+    $times[min_bits] = {}
+    (2..24).each{ |max_bits|
+      $times[min_bits][max_bits] = []
+      print("Testing #{min_bits}-#{max_bits} bits...".ljust(80, ' ') + "\r")
+      max = [1 << max_bits - 1, 256].min
+      alphabet = (0 ... max).to_a.map(&:chr)
+      data = (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
+      test(data, alphabet, min_bits, max_bits)
+    }
+  }
+  byebug
+  puts "HEY"
+end
+
 # LZW-encode and decode a pixel array and see if they match
 def decode_test(input: nil)
   bits = 8
-  max = [1 << bits, 128].min - 2
-  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug)
-  file = input ? File.binread(input) : (64 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
+  max = [1 << bits - 1, 128].min - 2
+  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug, alphabet: (0 ... max).to_a.map(&:chr))
+  file = input ? File.binread(input) : (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
   puts cmp
@@ -510,11 +544,14 @@ $codes1 = []
 $codes2 = []
 $table1 = []
 $table2 = []
-$done1 = false
-$done2 = false
 $init1 = []
 $init2 = []
-lzw = LZW.new(preset: :gif)
-#encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-decode_test(input: nil)
+$times = {}
+$ratios = {}
+lzw = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'))
+lzw.encode('TOBEORNOTTOBEORTOBEORNOT#')
+byebug
+encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
+#decode_test(input: nil)
 #bench_decode(pixels: 'gifenc/pixels')
+#tests
