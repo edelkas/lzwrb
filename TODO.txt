@@ -2,6 +2,7 @@
   contains all characters in data, UPDATE README when done
 - Binary vs textual, UPDATE README when done
 - Warning if too few entries are left in the initial table (slow...)
+- Compute min_bits by default based on alphabet size
 
 - Remember to clean code (delete $codes1, etc)
 - Add Rake tests

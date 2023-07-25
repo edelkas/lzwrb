@@ -3,6 +3,8 @@ require 'benchmark'
 
 class LZW
 
+  DEBUG = false
+
   # Default alphabets
   DEC         = (0...10).to_a
   HEX_UPPER   = (0...16).to_a.map{ |n| n.to_s(16).upcase }
@@ -128,7 +130,7 @@ class LZW
 
   def encode(data)
     # Log
-    log("Encoding #{format_size(data.bytesize)} with #{format_params}.")
+    log("<- Encoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -157,8 +159,8 @@ class LZW
 
     # Return
     ttime = Time.now - stime
-    log("Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
-    log("Encoded data: #{format_size(res.bytesize)} (#{"%5.2f%%" % [100 * (1 - res.bytesize.to_f / data.bytesize)]} compression).")
+    log("-> Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("-> Encoded data: #{format_size(res.bytesize)} (#{"%5.2f%%" % [100 * (1 - res.bytesize.to_f / data.bytesize)]} compression).")
     res
   rescue => e
     lex(e, 'Encoding error', true)
@@ -167,7 +169,7 @@ class LZW
   # Optimization? Unpack bits subsequently, rather than converting between strings and ints
   def decode(data)
     # Log
-    log("Decoding #{format_size(data.bytesize)} with #{format_params}.")
+    log("<- Decoding #{format_size(data.bytesize)} with #{format_params}.")
     stime = Time.now
 
     # Setup
@@ -185,7 +187,7 @@ class LZW
       # Parse code
       code = bits[off ... off + width].reverse.to_i(2)
       off += width
-      $codes2 << code.to_s(2).rjust(width, '0')
+      $codes2 << code.to_s(2).rjust(width, '0') if DEBUG
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
@@ -214,8 +216,8 @@ class LZW
 
     # Return
     ttime = Time.now - stime
-    log("Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
-    log("Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
+    log("-> Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("-> Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
     out
   rescue => e
     lex(e, 'Decoding error', false)
@@ -314,7 +316,7 @@ class LZW
   # During compression, the table is a hash. During decompression, the table
   # is an array, making the job faster.
   def table_init
-    @compress ? $init1 << $codes1.size : $init2 << $codes2.size
+    (@compress ? $init1 << $codes1.size : $init2 << $codes2.size) if DEBUG
     # Add symbols for all strings of length 1 (e.g. all 256 byte values)
     @key = @alphabet.size - 1
     @table = @compress ? @alphabet.each_with_index.to_h : @alphabet.dup
@@ -343,7 +345,8 @@ class LZW
 
     # Add code and increase index
     @key += 1
-    @compress ? (@table[val] = @key; $table1 << [@key, val]) : (@table << val; $table2 << [@key, val])
+    @compress ? @table[val] = @key : @table << val
+    (@compress ? $table1 << [@key, val] : $table2 << [@key, val]) if DEBUG
   end
 
   # Check table size, and increase code length or reinitialize if needed
@@ -390,7 +393,7 @@ class LZW
   def add_code(code)
     raise 'Found character not in alphabet' if code.nil?
     bits = @bits
-    $codes1 << code.to_s(2).rjust(@bits, '0')
+    $codes1 << code.to_s(2).rjust(@bits, '0') if DEBUG
 
     # Pack last byte
     if @boff > 0
@@ -417,141 +420,3 @@ class LZW
   end
 
 end
-
-def blockify(data)
-  return "\x00".b if data.size == 0
-  ff = "\xFF".b.freeze
-  off = 0
-  out = "".b
-  len = data.length
-  for _ in (0 ... len / 255)
-    out << ff << data[off ... off + 255]
-    off += 255
-  end
-  out << (len - off).chr << data[off..-1] if off < len
-  out << "\x00".b
-  out
-rescue
-  "\x00".b
-end
-
-def deblockify(data)
-  out = ""
-  size = data[0].ord
-  off = 0
-  while size != 0
-    out << data[off + 1 .. off + size]
-    off += size + 1
-    size = data[off].ord
-  end
-  out
-rescue
-  ''.b
-end
-
-# LZW-encode a pixel array read from a file, and compare with a properly generated
-# GIF to see if they match.
-def encode_test(gif: nil, pixels: nil)
-  lzw = LZW.new(preset: :gif)
-  own = lzw.encode(File.binread(pixels))
-  gif = deblockify(File.binread(gif)[0x32B..-2])
-  cmp = own == gif
-  puts cmp
-  if !cmp
-    gif.chars.each_with_index{ |c, i|
-      if own[i] != c
-        puts "Breaks at byte #{i}"
-        break
-      end
-    }
-  end
-end
-
-def test(data, alphabet, min_bits, max_bits)
-  [true, false].each{ |clear|
-    [true, false].each{ |stop|
-      $codes1 = []
-      $codes2 = []
-      $table1 = []
-      $table2 = []
-      $init1 = []
-      $init2 = []
-      
-      lzw = LZW.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
-      t = Time.now
-      cmp = lzw.encode(data)
-      t1 = Time.now - t
-      t = Time.now
-      res = lzw.decode(cmp)
-      t2 = Time.now - t
-      $times[min_bits][max_bits] << [t1, t2]
-      puts "Fail: #{min_bits}-#{max_bits}, #{clear}:#{stop}, #{alphabet.size}" if res != data
-    }
-  }
-end
-
-def tests
-  # Constant length
-  (2..24).each{ |min_bits|
-    $times[min_bits] = {}
-    (2..24).each{ |max_bits|
-      $times[min_bits][max_bits] = []
-      print("Testing #{min_bits}-#{max_bits} bits...".ljust(80, ' ') + "\r")
-      max = [1 << max_bits - 1, 256].min
-      alphabet = (0 ... max).to_a.map(&:chr)
-      data = (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
-      test(data, alphabet, min_bits, max_bits)
-    }
-  }
-  byebug
-  puts "HEY"
-end
-
-# LZW-encode and decode a pixel array and see if they match
-def decode_test(input: nil)
-  bits = 8
-  max = [1 << bits - 1, 128].min - 2
-  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug, alphabet: (0 ... max).to_a.map(&:chr))
-  file = input ? File.binread(input) : (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
-  res = lzw.decode(lzw.encode(file))
-  cmp = file == res
-  puts cmp
-  if !cmp
-    file.chars.each_with_index{ |c, i|
-      if res[i] != c
-        puts "Breaks at byte #{i}"
-        break
-      end
-    }
-    byebug
-  end
-end
-
-def bench_encode(pixels: nil)
-  lzw = LZW.new(preset: :gif)
-  file = File.binread(pixels)
-  puts Benchmark.measure{ 10.times{ lzw.encode(file) } }
-end
-
-def bench_decode(pixels: nil)
-  lzw = LZW.new(preset: :gif)
-  file = File.binread(pixels)
-  cmp = lzw.encode(file)
-  puts Benchmark.measure{ 10.times{ lzw.decode(cmp) } }
-end
-
-$codes1 = []
-$codes2 = []
-$table1 = []
-$table2 = []
-$init1 = []
-$init2 = []
-$times = {}
-$ratios = {}
-lzw = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'))
-lzw.encode('TOBEORNOTTOBEORTOBEORNOT#')
-byebug
-encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-#decode_test(input: nil)
-#bench_decode(pixels: 'gifenc/pixels')
-#tests
