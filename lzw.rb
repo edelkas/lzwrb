@@ -1,6 +1,3 @@
-require 'byebug'
-require 'benchmark'
-
 class LZW
 
   DEBUG = false
@@ -34,16 +31,6 @@ class LZW
   @@clear    = false # Use CLEAR codes
   @@stop     = false # Use STOP codes
   @@deferred = false # Use deferred CLEAR codes
-
-  # Print fixed-width LZW codes, for debugging purposes
-  def self.print_codes(codes, width)
-    puts "Hex Dec Binary"
-    puts codes.unpack('b*')[0]
-              .scan(/.{#{width}}/m)
-              .map{ |c| c.reverse.to_i(2) }
-              .map{ |c| "%03X %03d %0#{width}b" % [c, c, c] }
-              .join("\n")
-  end
 
   def initialize(
       preset:    nil,     # Predefined configurations (GIF...)
@@ -159,7 +146,7 @@ class LZW
 
     # Return
     ttime = Time.now - stime
-    log("-> Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("-> Encoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024 ** 2) / ttime]} mbit\/s).")
     log("-> Encoded data: #{format_size(res.bytesize)} (#{"%5.2f%%" % [100 * (1 - res.bytesize.to_f / data.bytesize)]} compression).")
     res
   rescue => e
@@ -216,12 +203,11 @@ class LZW
 
     # Return
     ttime = Time.now - stime
-    log("-> Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024) / ttime]} kbit\/s).")
+    log("-> Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024 ** 2) / ttime]} mbit\/s).")
     log("-> Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
     out
   rescue => e
     lex(e, 'Decoding error', false)
-    byebug
   end
 
   private
@@ -341,7 +327,7 @@ class LZW
   # Add new code to the table
   def table_add(val)
     # Table is full
-    #return if @key + 1 >= 1 << @max_bits
+    return if @key + @step >= 1 << @max_bits
 
     # Add code and increase index
     @key += 1

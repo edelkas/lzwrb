@@ -1,5 +1,7 @@
-require_relative 'lzw'
+require 'byebug'
+require 'benchmark'
 
+require_relative 'lzw'
 
 def blockify(data)
   return "\x00".b if data.size == 0
@@ -74,7 +76,6 @@ def test(data, alphabet, min_bits, max_bits)
 end
 
 def tests
-  # Constant length
   (2..24).each{ |min_bits|
     $times[min_bits] = {}
     (2..24).each{ |max_bits|
@@ -86,8 +87,6 @@ def tests
       test(data, alphabet, min_bits, max_bits)
     }
   }
-  byebug
-  puts "HEY"
 end
 
 # LZW-encode and decode a pixel array and see if they match
