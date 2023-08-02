@@ -3,7 +3,7 @@ class LZW
   DEBUG = false
 
   # Default alphabets
-  DEC         = (0...10).to_a
+  DEC         = (0...10).to_a.map(&:chr)
   HEX_UPPER   = (0...16).to_a.map{ |n| n.to_s(16).upcase }
   HEX_LOWER   = (0...16).to_a.map{ |n| n.to_s(16).downcase }
   LATIN_UPPER = ('A'..'Z').to_a
@@ -39,6 +39,7 @@ class LZW
       max_bits:  nil,     # Maximum code bit size for variable length encoding (superseeded by 'bits')
       binary:    nil,     # Use binary encoding (vs regular text encoding)
       alphabet:  BINARY,  # Set of characters that compose the messages to encode
+      safe:      false,   # First encoding pass to verify alphabet covers all data
       lsb:       nil,     # Use least or most significant bit packing
       clear:     nil,     # Use clear codes every time the table gets reinitialized
       stop:      nil,     # Use stop codes at the end of the encoding
@@ -66,6 +67,10 @@ class LZW
 
     # Binary compression
     @binary = binary.nil? ? alphabet == BINARY : binary
+
+    # Safe mode for encoding (verifies that the data provided is composed exclusively
+    # by characters from the alphabet)
+    @safe = safe
 
     # Code bit size
     if bits
@@ -123,6 +128,7 @@ class LZW
     # Setup
     init(true)
     table_init
+    verify_data(data) if @safe
 
     # LZW-encode data
     buf = ''
@@ -350,7 +356,12 @@ class LZW
     return false
   end
 
-    # < ------------------------- ENCODING METHODS --------------------------- >
+  # < ------------------------- ENCODING METHODS --------------------------- >
+
+  def verify_data(data)
+    alph = @alphabet.each_with_index.to_h
+    raise "Data contains characters not present in the alphabet" if data.each_char.any?{ |c| !alph.include?(c) }
+  end
 
   def add_code2(code)
     bits = @bits

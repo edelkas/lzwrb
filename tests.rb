@@ -91,10 +91,8 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test
-  bits = 8
-  max = [1 << bits - 1, 128].min - 2
-  lzw = LZW.new(preset: :gif, bits: bits, clear: true, stop: true, verbosity: :debug, alphabet: (0 ... max).to_a.map(&:chr))
-  file = (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
+  lzw = LZW.new(preset: :gif, safe: false, alphabet: (0 ... 256).to_a.map(&:chr))
+  file = (256 * 1024).times.map{ |c| (256 * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
   puts cmp
@@ -133,7 +131,7 @@ $ratios = {}
 #lzw = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'))
 #lzw.encode('TOBEORNOTTOBEORTOBEORNOT#')
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-#decode_test
-bench_encode(pixels: 'gifenc/pixels')
-bench_decode(pixels: 'gifenc/pixels')
+decode_test
+#bench_encode(pixels: 'gifenc/pixels')
+#bench_decode(pixels: 'gifenc/pixels')
 #tests
