@@ -92,7 +92,7 @@ end
 # LZW-encode and decode a pixel array and see if they match
 def decode_test
   lzw = LZW.new(preset: :gif, safe: false, alphabet: (0 ... 256).to_a.map(&:chr))
-  file = (256 * 1024).times.map{ |c| (256 * rand).to_i.chr }.join
+  file = (256 * 1024).times.map{ |c| (2 * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
   puts cmp

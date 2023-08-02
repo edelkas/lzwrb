@@ -212,9 +212,13 @@ The default value is `:normal`.
 
 ## Benchmarks
 
-On mid-range computers (2nd gen Ryzen 5, 7th gen i5) I've obtained 5 mbit/s encoding speeds and 9 mbit/s decoding speeds.
+On mid-range computers (2nd gen Ryzen 5, 7th gen i5) I've obtained the following average speeds:
 
-The optional `:safe` setting, which performs a first pass in the encoding process to ensure data integrity (see [Custom alphabets](#custom-alphabets)), seems to incur roughly in a 15% speed penalty, i.e., encoding bitrate is decreased by about 15%. This setting does not affect the decoding process.
+- A low bound for encoding speeds of 5 mbit/s when the data is random, and thus, very hard to encode.
+- A high bound for encoding speeds of 16 mbit/s when the data is very regular, and thus, easy to encode.
+- A fairly consistent decoding speed of 8-9 mbit/s, regardless of the nature of the original data.
+
+The optional (and by default disabled) `:safe` setting, which performs a first pass in the encoding process to ensure data integrity (see [Custom alphabets](#custom-alphabets)), seems to incur roughly in a 15% performance penalty, i.e., encoding bitrate is decreased by about 15%. This setting does not affect the decoding process.
 
 ## Todo
 
