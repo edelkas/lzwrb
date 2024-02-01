@@ -15,6 +15,30 @@ class LZW
   ASCII       = (0...128).to_a.map(&:chr)
   BINARY      = (0...256).to_a.map(&:chr)
 
+  # Default presets
+  PRESET_GIF = {
+    min_bits: 8,
+    max_bits: 12,
+    lsb:      true,
+    clear:    true,
+    stop:     true,
+    deferred: true
+  }
+  PRESET_FAST = {
+    min_bits: 16,
+    max_bits: 16,
+    lsb:      true,
+    clear:    false,
+    stop:     false
+  }
+  PRESET_BEST = {
+    min_bits: 8,
+    max_bits: 16,
+    lsb:      true,
+    clear:    false,
+    stop:     false
+  }
+
   # Verbosity of the encoder/decoder
   VERBOSITY = {
     silent:  0, # Don't print anything to the console
@@ -47,7 +71,7 @@ class LZW
       verbosity: :normal  # Verbosity level of the encoder
     )
     # Parse preset
-    params = parse_preset(preset)
+    params = preset || {}
 
     # Verbosity
     if VERBOSITY[verbosity]
@@ -63,7 +87,7 @@ class LZW
       exit
     end
     @alphabet = alphabet.uniq
-    warn('Removed duplicate entries from alphabet') if @alphabet != alphabet
+    warn('Removed duplicate entries from alphabet') if @alphabet.size < alphabet.size
 
     # Binary compression
     @binary = binary.nil? ? alphabet == BINARY : binary
@@ -132,20 +156,20 @@ class LZW
 
     # LZW-encode data
     buf = ''
-    add_code(@clear) if !@clear.nil?
+    put_code(@clear) if !@clear.nil?
     data.each_char do |c|
       next_buf = buf + c
       if table_has(next_buf)
         buf = next_buf
       else
-        add_code(@table[buf])
+        put_code(@table[buf])
         table_add(next_buf)
         table_check()
         buf = c
       end
     end
-    add_code(@table[buf])
-    add_code(@stop) if !@stop.nil?
+    put_code(@table[buf])
+    put_code(@stop) if !@stop.nil?
 
     # Pack codes to binary string
     res = @buffer.pack('C*')
@@ -235,38 +259,6 @@ class LZW
     nil
   end
 
-  def parse_preset(preset)
-    case preset
-    when :gif
-      {
-        min_bits: 8,
-        max_bits: 12,
-        lsb:      true,
-        clear:    true,
-        stop:     true,
-        deferred: true
-      }
-    when :fast
-      {
-        min_bits: 16,
-        max_bits: 16,
-        lsb:      true,
-        clear:    false,
-        stop:     false
-      }
-    when :best
-      {
-        min_bits: 8,
-        max_bits: 16,
-        lsb:      true,
-        clear:    false,
-        stop:     false
-      }
-    else
-      {}
-    end
-  end
-
   # < --------------------------- LOGGING METHODS ---------------------------- >
 
   def format_params
@@ -282,7 +274,6 @@ class LZW
     unit = ['B', 'KiB', 'MiB', 'GiB']
     "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
   end
-
 
   def log(txt, level = 3)
     return if level > @verbosity
@@ -345,7 +336,7 @@ class LZW
   def table_check
     if @key + @step == 1 << @bits
       if @bits == @max_bits
-        add_code(@clear) if @compress && @clear
+        put_code(@clear) if @compress && @clear
         refresh = @compress || !@clear || !@deferred
         table_init if refresh
         return refresh
@@ -363,7 +354,7 @@ class LZW
     raise "Data contains characters not present in the alphabet" if data.each_char.any?{ |c| !alph.include?(c) }
   end
 
-  def add_code2(code)
+  def put_code2(code)
     bits = @bits
 
     while bits > 0
@@ -387,7 +378,7 @@ class LZW
     end
   end
 
-  def add_code(code)
+  def put_code(code)
     raise 'Found character not in alphabet' if code.nil?
     bits = @bits
     $codes1 << code.to_s(2).rjust(@bits, '0') if DEBUG
@@ -395,7 +386,7 @@ class LZW
     # Pack last byte
     if @boff > 0
       @buffer[-1] |= code << @boff & 0xFF
-      if @bits < 8 - @boff
+      if @boff + @bits < 8
         @boff += @bits
         return
       end

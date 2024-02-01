@@ -114,9 +114,9 @@ The following presets are currently available:
 
 Preset | Description
 --- | ---
-`:best` | Aimed at best compression, uses variable code length (8-16 bits), no special codes and LSB packing.
-`:fast` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing.
-`:gif` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
+`PRESET_BEST` | Aimed at best compression, uses variable code length (8-16 bits), no special codes and LSB packing.
+`PRESET_FAST` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing.
+`PRESET_GIF` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
 
 Their descriptive names are based on the average case. However, it is possible on strange samples for the `:best` compression to actually be worse than many other settings.
 
@@ -167,7 +167,7 @@ Another common feature of the LZW algorithm is the addition of special codes, no
   - If the code length is smaller than 8 bits. In this case, a long string of 0's at the end of the final byte is ambiguous, as it could either be just padding, or actually represent code 0. Therefore, the encoder will force stop codes when the minimum code size is below 8 bits.
   - For compatibility with formats that require stop codes, like GIF.
 
-  The encoder/decoder can be configured to use stop codes with the `:stop` option. As mentioned, stop codes might be used even this option is not set, or set to false, if the encoded deems it necessary (a warning will be issues in those cases).
+  The encoder/decoder can be configured to use stop codes with the `:stop` option. As mentioned, stop codes might be used even this option is not set, or set to false, if the encoder deems it necessary (a warning will be issues in those cases).
 
 Another relevant option is **deferred clear codes**. An intelligent encoder can choose not to refresh the code table even when it's full, thus relying on the current one, without adding any new codes, until it deems it useful, at which point it will output a clear code as a signal for the decoder. A decoder would then have to be configured accordingly, such that it doesn't refresh the code table automatically - which is the standard behaviour - unless it receives an explicit clear code.
 
