@@ -1,10 +1,10 @@
 Gem::Specification.new do |s|
   s.name        = "lzwrb"
   s.version     = "0.1.0"
-  s.summary     = "Pure Ruby highly configurable LZW encoder/decoder, compatible with GIF"
+  s.summary     = "Pure Ruby LZW encoder/decoder, highly configurable, compatible with GIF"
   s.description = <<-EOT
     This library provides LZW encoding and decoding capabilities with no
-    dependencies and reasonably fast speed. It is highly configurable,
+    dependencies and a reasonably fast speed. It is highly configurable,
     supporting both constant and variable code lengths, custom alphabets,
     usage of clear/stop codes...
 

@@ -1,5 +1,3 @@
-**WIP**
-
 # lzwrb
 
 lzwrb is a Ruby gem for LZW encoding and decoding. Main features:

@@ -19,7 +19,7 @@ class EncodingDecodingTest < Minitest::Test
             lzw = LZWrb.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
             res = lzw.decode(lzw.encode(data))
             puts "Fail: #{min_bits}-#{max_bits}, #{clear}:#{stop}, #{alphabet.size}" if res != data
-            assert_equal res, data
+            assert res == data
           }
         }
       }
