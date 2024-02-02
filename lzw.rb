@@ -354,7 +354,9 @@ class LZW
     raise "Data contains characters not present in the alphabet" if data.each_char.any?{ |c| !alph.include?(c) }
   end
 
-  def put_code2(code)
+  def put_code(code)
+    raise 'Found character not in alphabet' if code.nil?
+    $codes1 << code.to_s(2).rjust(@bits, '0') if DEBUG
     bits = @bits
 
     while bits > 0
@@ -375,35 +377,6 @@ class LZW
       bits -= 8 - @boff
       code >>= 8 - @boff
       @boff = 0
-    end
-  end
-
-  def put_code(code)
-    raise 'Found character not in alphabet' if code.nil?
-    bits = @bits
-    $codes1 << code.to_s(2).rjust(@bits, '0') if DEBUG
-
-    # Pack last byte
-    if @boff > 0
-      @buffer[-1] |= code << @boff & 0xFF
-      if @boff + @bits < 8
-        @boff += @bits
-        return
-      end
-      bits -= 8 - @boff
-      code >>= 8 - @boff
-      @boff = 0
-    end
-
-    # Add new bytes
-    while bits > 0
-      @buffer << (code & 0xFF)
-      if bits < 8
-        @boff = bits
-        return
-      end
-      bits -= 8
-      code >>= 8
     end
   end
 

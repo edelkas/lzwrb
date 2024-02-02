@@ -94,16 +94,16 @@ The following options are available:
 
 Argument     | Type    | Default   | Description
 ------------ | ------- | --------- | ---
-`:preset`    | Symbol  | None      | Specifies which preset (set of options) to use. See [Presets](#presets).
+`:alphabet`  | Array   | `BINARY`  | List of characters that compose the data to encode. See [Custom alphabets](#custom-alphabets).
 `:bits`      | Integer | None      | Code length in bits, for constant length mode. See [Code length](#code-length).
-`:min_bits`  | Integer | 8         | Minimum code length in bits, for variable length mode. See [Code length](#code-length).
-`:max_bits`  | Integer | 16        | Maximum code length in bits, for variable length mode. See [Code length](#code-length).
 `:clear`     | Boolean | False     | Whether to use Clear codes or not. See [Clear & Stop codes](#clear--stop-codes).
-`:stop`      | Boolean | False     | Whether to use Stop codes or not. See [Clear & Stop codes](#clear--stop-codes).
 `:deferred`  | Boolean | False     | Whether to use deferred Clear codes for the decoding process. See [Clear & Stop codes](#clear--stop-codes).
 `:lsb`       | Boolean | True      | Whether to use LSB or MSB (least/most significant bit packing order). See [Packing order](#packing-order).
-`:alphabet`  | Array   | `BINARY`  | List of characters that compose the data to encode. See [Custom alphabets](#custom-alphabets).
+`:max_bits`  | Integer | 16        | Maximum code length in bits, for variable length mode. See [Code length](#code-length).
+`:min_bits`  | Integer | 8         | Minimum code length in bits, for variable length mode. See [Code length](#code-length).
+`:preset`    | Symbol  | None      | Specifies which preset (set of options) to use. See [Presets](#presets).
 `:safe`      | Boolean | False     | Perform first pass during encoding process for data integrity verification. See [Custom alphabets](#custom-alphabets).
+`:stop`      | Boolean | False     | Whether to use Stop codes or not. See [Clear & Stop codes](#clear--stop-codes).
 `:verbosity` | Symbol  | `:normal` | Specifies the amount of detail to print to the console. See [Verbosity](#verbosity).
 
 ### Presets

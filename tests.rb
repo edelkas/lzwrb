@@ -37,7 +37,7 @@ end
 # LZW-encode a pixel array read from a file, and compare with a properly generated
 # GIF to see if they match.
 def encode_test(gif: nil, pixels: nil)
-  lzw = LZW.new(preset: :gif)
+  lzw = LZW.new(preset: LZW::PRESET_GIF)
   own = lzw.encode(File.binread(pixels))
   gif = deblockify(File.binread(gif)[0x32B..-2])
   cmp = own == gif
@@ -61,7 +61,7 @@ def test(data, alphabet, min_bits, max_bits)
       $table2 = []
       $init1 = []
       $init2 = []
-      
+
       lzw = LZW.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
       t = Time.now
       cmp = lzw.encode(data)
@@ -78,7 +78,7 @@ end
 def tests
   (2..24).each{ |min_bits|
     $times[min_bits] = {}
-    (2..24).each{ |max_bits|
+    (min_bits..24).each{ |max_bits|
       $times[min_bits][max_bits] = []
       print("Testing #{min_bits}-#{max_bits} bits...".ljust(80, ' ') + "\r")
       max = [1 << max_bits - 1, 256].min
@@ -91,7 +91,7 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test
-  lzw = LZW.new(preset: :gif, safe: false, alphabet: (0 ... 256).to_a.map(&:chr))
+  lzw = LZW.new(preset: LZW::PRESET_GIF, safe: false, alphabet: LZW::BINARY)
   file = (256 * 1024).times.map{ |c| (2 * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
@@ -108,13 +108,13 @@ def decode_test
 end
 
 def bench_encode(pixels: nil)
-  lzw = LZW.new(preset: :gif)
+  lzw = LZW.new(preset: LZW::PRESET_GIF)
   file = File.binread(pixels)
   puts Benchmark.measure{ 10.times{ lzw.encode(file) } }
 end
 
 def bench_decode(pixels: nil)
-  lzw = LZW.new(preset: :gif)
+  lzw = LZW.new(preset: LZW::PRESET_GIF)
   file = File.binread(pixels)
   cmp = lzw.encode(file)
   puts Benchmark.measure{ 10.times{ lzw.decode(cmp) } }
@@ -128,10 +128,13 @@ $init1 = []
 $init2 = []
 $times = {}
 $ratios = {}
-#lzw = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'))
-#lzw.encode('TOBEORNOTTOBEORTOBEORNOT#')
+lzw1 = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'), binary: true)
+lzw2 = LZW.new(min_bits: 5, max_bits: 8, clear: false, stop: false, alphabet: LZW::LATIN_UPPER.unshift('#'), binary: false)
+#lzw = LZW.new
+data = 'TOBEORNOTTOBEORTOBEORNOT#'
+puts lzw1.encode(data) == lzw2.encode(data)
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
-decode_test
+#decode_test
 #bench_encode(pixels: 'gifenc/pixels')
 #bench_decode(pixels: 'gifenc/pixels')
 #tests

@@ -1,4 +1,3 @@
-- Binary vs textual, UPDATE README when done
 - Warning if too few entries are left in the initial table (slow...)
 - Compute min_bits by default based on alphabet size
 
@@ -10,5 +9,4 @@ Readme:
 - In Basic Usage, put correct output sample.
 
 Test:
-- Custom alphabets (same text using binary vs textual)
 - Binary alphabets of weird sizes (very small, equal to power of 2, greater than 256, etc)
