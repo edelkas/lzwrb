@@ -128,11 +128,11 @@ $init1 = []
 $init2 = []
 $times = {}
 $ratios = {}
-lzw = LZW.new(min_bits: 4, max_bits: 8, clear: false, alphabet: LZW::LATIN_UPPER.unshift('#'), binary: true)
-data = 'TOBEORNOTTOBEORTOBEORNOT#'
-puts lzw.decode(lzw.encode(data)) == data
+#lzw = LZW.new(alphabet: LZW::LATIN_UPPER)
+#data = 'TOBEORNOTTOBEORTOBEORNOT' * 10000
+#puts lzw.decode(lzw.encode(data)) == data
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')
 #decode_test
 #bench_encode(pixels: 'gifenc/pixels')
 #bench_decode(pixels: 'gifenc/pixels')
-#tests
+tests

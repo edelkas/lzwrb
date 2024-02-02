@@ -1,7 +1,5 @@
 class LZW
 
-  DEBUG = false
-
   # Default alphabets
   DEC         = (0...10).to_a.map(&:chr)
   HEX_UPPER   = (0...16).to_a.map{ |n| n.to_s(16).upcase }
@@ -116,7 +114,8 @@ class LZW
 
     # Determine min bits based on alphabet length if not specified
     if !find_arg(min_bits, params[:min_bits])
-      @min_bits = @alphabet.size.bit_length
+      @min_bits = (@alphabet.size - 1).bit_length
+      @max_bits = @min_bits if @max_bits < @min_bits
     end
 
     # Clear and stop codes
@@ -144,7 +143,7 @@ class LZW
     end
       # Min bits doesn't fit alphabet (needs implicit adjustment)
     if (@alphabet.size + extra) > 1 << @min_bits
-      @min_bits = (@alphabet.size + extra).bit_length
+      @min_bits = (@alphabet.size + extra - 1).bit_length
     end
 
     # Clear and stop codes
@@ -217,7 +216,6 @@ class LZW
       # Parse code
       code = bits[off ... off + width].reverse.to_i(2)
       off += width
-      $codes2 << code.to_s(2).rjust(width, '0') if DEBUG
 
       # Handle clear and stop codes, if present
       if code == @clear && @clear
@@ -285,7 +283,8 @@ class LZW
   def format_size(sz)
     mag = Math.log(sz, 1024).to_i.clamp(0, 3)
     unit = ['B', 'KiB', 'MiB', 'GiB']
-    "%.3f %s" % [sz.to_f / 1024 ** mag, unit[mag]]
+    fmt = mag == 0 ? '%d' : '%.3f'
+    "#{fmt}%s" % [sz.to_f / 1024 ** mag, unit[mag]]
   end
 
   def log(txt, level = 3)
@@ -312,7 +311,6 @@ class LZW
   # During compression, the table is a hash. During decompression, the table
   # is an array, making the job faster.
   def table_init
-    (@compress ? $init1 << $codes1.size : $init2 << $codes2.size) if DEBUG
     # Add symbols for all strings of length 1 (e.g. all 256 byte values)
     @key = @alphabet.size - 1
     @table = @compress ? @alphabet.each_with_index.to_h : @alphabet.dup
@@ -342,7 +340,6 @@ class LZW
     # Add code and increase index
     @key += 1
     @compress ? @table[val] = @key : @table << val
-    (@compress ? $table1 << [@key, val] : $table2 << [@key, val]) if DEBUG
   end
 
   # Check table size, and increase code length or reinitialize if needed
@@ -369,7 +366,6 @@ class LZW
 
   def put_code(code)
     raise 'Found character not in alphabet' if code.nil?
-    $codes1 << code.to_s(2).rjust(@bits, '0') if DEBUG
     bits = @bits
 
     while bits > 0

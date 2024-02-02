@@ -66,15 +66,19 @@ The following example uses the default configuration, see the next section for a
 ```ruby
 require 'lzw'
 lzw = LZW.new
-data = ...
-cmp = lzw.encode(data)
-res = lzw.decode(cmp)
-puts res == data
+data = 'TOBEORNOTTOBEORTOBEORNOT' * 10000
+puts lzw.decode(lzw.encode(data)) == data
 ```
 
 Output sample:
 ```
-Test
+[09:41:19.628] LZW <- Encoding 234.375KiB with 8-16 bit codes, LSB packing, no special codes, binary mode.
+[09:41:19.767] LZW -> Encoding finished in 0.139s (avg. 13.172 mbit/s).
+[09:41:19.767] LZW -> Encoded data: 4.458KiB (98.10% compression).
+[09:41:19.767] LZW <- Decoding 4.458KiB with 8-16 bit codes, LSB packing, no special codes, binary mode.
+[09:41:19.773] LZW -> Decoding finished in 0.006s (avg. 5.431 mbit/s).
+[09:41:19.773] LZW -> Decoded data: 234.375KiB (98.10% compression).
+true
 ```
 Note: The output can be reduced or suppressed (or detailed), see [Verbosity](#verbosity).
 
@@ -181,7 +185,7 @@ As mentioned before, this algorithm can work for arbitrary data composed of char
 
 It is the recommended alphabet to use if in doubt or if binary data is meant to be encoded. Even if the data to be encoded is just text, if it is Unicode it is probably still best to use the default binary alphabet.
 
-Nevertheless, if data with composed by a substantially smaller set of symbols is meant to be encoded, the full alphabet might be overkill, and a smaller alphabet could be better suited, leading to better compression due to the potential to use smaller code lengths.
+Nevertheless, if data composed by a substantially smaller set of symbols is meant to be encoded, the full alphabet might be overkill, and a smaller alphabet could be better suited, leading to better compression due to the potential to use smaller code lengths.
 
 This can be configured with the `:alphabet` option of the constructor, which receives an array with all the characters the data is (supposedly) composed of.
 
@@ -189,7 +193,26 @@ For example, if the data to be encoded is composed only of bytes 0 through 7, th
 ```ruby
 ["\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06", "\x07"]
 ```
-could be used, and a minimum code length of only 3 bits could be set. The gem comes equipped with a few default alphabets as constants, for instance, `LZW::HEX_UPPER` contains all 16 possible hex digits in uppercase, and the default alphabet, `LZW::BINARY`, contains all possible 256 byte values. See the `LZW` class for a full list. Nevertheless, an arbitrary array can be used here, as long as it's composed only of 1-character strings.
+could be used, and a minimum code length of only 3 bits could be set. The gem comes equipped with a few default alphabets as constants, for instance, `HEX_UPPER` contains all 16 possible hex digits in uppercase, and the default alphabet, `BINARY`, contains all possible 256 byte values. See the `LZW` class for a full list. Nevertheless, an arbitrary array can be used here, as long as it's composed only of 1-character strings.
+
+Sample input:
+```ruby
+lzw = LZW.new(alphabet: LZW::LATIN_UPPER)
+data = 'TOBEORNOTTOBEORTOBEORNOT' * 10000
+puts lzw.decode(lzw.encode(data)) == data
+```
+
+Output:
+```
+[09:48:25.765] LZW <- Encoding 234.375KiB with 5-16 bit codes, LSB packing, STOP codes, textual mode.
+[09:48:25.899] LZW -> Encoding finished in 0.133s (avg. 13.717 mbit/s).
+[09:48:25.899] LZW -> Encoded data: 4.330KiB (98.15% compression).
+[09:48:25.899] LZW <- Decoding 4.330KiB with 5-16 bit codes, LSB packing, STOP codes, textual mode.
+[09:48:25.909] LZW -> Decoding finished in 0.010s (avg. 3.272 mbit/s).
+[09:48:25.909] LZW -> Decoded data: 234.375KiB (98.15% compression).
+```
+
+Note how the encoder automatically selected a minimum code size of 5 bits, which suffices to hold the specified alphabet. Specifying fewer minimum bits will be silently corrected by the encoder as well.
 
 Note that if the provided alphabet does not contain all the symbols that compose the data to be encoded, this will result in unexpected and incorrect behaviour; most likely an exception, although in some rare cases it could just result in garbled data. Therefore, the user should do either of the following:
 

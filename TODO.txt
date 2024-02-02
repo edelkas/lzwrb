@@ -1,12 +1,23 @@
-- Warning if too few entries are left in the initial table (slow...)
-- Compute min_bits by default based on alphabet size
+### Main features
 
-- Remember to clean code (delete $codes1, etc)
-- Add Rake tests
-- Package as gem
+* Most significant bit (MSB) packing order.
+* "Early change" support.
+* Support for TIFF and PDF (requires the 2 features above).
+* Support for UNIX compress (has a bug).
 
-Readme:
-- In Basic Usage, put correct output sample.
+### Smaller additions
 
-Test:
-- Binary alphabets of weird sizes (very small, equal to power of 2, greater than 256, etc)
+* Option to disable automatic table reinitialization.
+* Choice between plain and rich logs.
+
+### Optimizations
+
+* Native packing for codes of constant width of 8, 16, 32 or 64 bits for extra speed.
+* Use a Trie instead of a Hash for the encoding process.
+
+### Development
+
+* Add docs.
+* Add changelog.
+* Add Rake tests.
+* Package as gem.
