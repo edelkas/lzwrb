@@ -1,7 +1,8 @@
+# TODO: Put this inside proper Rake test task
 require 'byebug'
 require 'benchmark'
 
-require_relative 'lzw'
+require_relative 'lzwrb'
 
 def blockify(data)
   return "\x00".b if data.size == 0
@@ -37,7 +38,7 @@ end
 # LZW-encode a pixel array read from a file, and compare with a properly generated
 # GIF to see if they match.
 def encode_test(gif: nil, pixels: nil)
-  lzw = LZW.new(preset: LZW::PRESET_GIF)
+  lzw = LZWrb.new(preset: LZWrb::PRESET_GIF)
   own = lzw.encode(File.binread(pixels))
   gif = deblockify(File.binread(gif)[0x32B..-2])
   cmp = own == gif
@@ -62,7 +63,7 @@ def test(data, alphabet, min_bits, max_bits)
       $init1 = []
       $init2 = []
 
-      lzw = LZW.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
+      lzw = LZWrb.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
       t = Time.now
       cmp = lzw.encode(data)
       t1 = Time.now - t
@@ -91,7 +92,7 @@ end
 
 # LZW-encode and decode a pixel array and see if they match
 def decode_test
-  lzw = LZW.new(preset: LZW::PRESET_GIF, safe: false, alphabet: LZW::BINARY)
+  lzw = LZWrb.new(preset: LZWrb::PRESET_GIF, safe: false, alphabet: LZWrb::BINARY)
   file = (256 * 1024).times.map{ |c| (2 * rand).to_i.chr }.join
   res = lzw.decode(lzw.encode(file))
   cmp = file == res
@@ -108,13 +109,13 @@ def decode_test
 end
 
 def bench_encode(pixels: nil)
-  lzw = LZW.new(preset: LZW::PRESET_GIF)
+  lzw = LZWrb.new(preset: LZWrb::PRESET_GIF)
   file = File.binread(pixels)
   puts Benchmark.measure{ 10.times{ lzw.encode(file) } }
 end
 
 def bench_decode(pixels: nil)
-  lzw = LZW.new(preset: LZW::PRESET_GIF)
+  lzw = LZWrb.new(preset: LZWrb::PRESET_GIF)
   file = File.binread(pixels)
   cmp = lzw.encode(file)
   puts Benchmark.measure{ 10.times{ lzw.decode(cmp) } }
@@ -128,7 +129,7 @@ $init1 = []
 $init2 = []
 $times = {}
 $ratios = {}
-#lzw = LZW.new(alphabet: LZW::LATIN_UPPER)
+#lzw = LZWrb.new(alphabet: LZWrb::LATIN_UPPER)
 #data = 'TOBEORNOTTOBEORTOBEORNOT' * 10000
 #puts lzw.decode(lzw.encode(data)) == data
 #encode_test(pixels: 'gifenc/pixels', gif: 'gifenc/example.gif')

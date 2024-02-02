@@ -20,4 +20,3 @@
 * Add docs.
 * Add changelog.
 * Add Rake tests.
-* Package as gem.

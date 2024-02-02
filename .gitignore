@@ -1,2 +1,2 @@
 .byebug*
-gifenc/
+*.gem

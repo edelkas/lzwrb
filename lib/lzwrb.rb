@@ -1,4 +1,4 @@
-class LZW
+class LZWrb
 
   # Default alphabets
   DEC         = (0...10).to_a.map(&:chr)
