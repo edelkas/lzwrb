@@ -114,16 +114,25 @@ class LZW
       end
     end
 
+    # Determine min bits based on alphabet length if not specified
+    if !find_arg(min_bits, params[:min_bits])
+      @min_bits = @alphabet.size.bit_length
+    end
+
     # Clear and stop codes
     use_clear = find_arg(clear, params[:clear], @@clear)
     use_stop = find_arg(stop, params[:stop], @@stop)
     if !use_stop && @min_bits < 8
       use_stop = true
-      warn("Stop codes are necessary for code sizes below 8 bits to prevent ambiguity: enabled stop codes.")
+      # Warning if stop codes were explicitly disabled (false, NOT nil)
+      if find_arg(stop, params[:stop]) == false
+        warn("Stop codes are necessary for code sizes below 8 bits to prevent ambiguity: enabled stop codes.")
+      end
     end
 
-    # Alphabet length check
+    # Alphabet length checks
     extra = (use_clear ? 1 : 0) + (use_stop ? 1 : 0)
+      # Max bits doesn't fit alphabet (needs explicit adjustment)
     if (@alphabet.size + extra) > 1 << @max_bits
       if @binary
         @alphabet = @alphabet.take((1 << @max_bits - 1))
@@ -132,6 +141,10 @@ class LZW
         @max_bits = (@alphabet.size + extra).bit_length
         warn("Max code size needs to fit the alphabet (and clear & stop codes, if used): increased to #{@max_bits} bits.")
       end
+    end
+      # Min bits doesn't fit alphabet (needs implicit adjustment)
+    if (@alphabet.size + extra) > 1 << @min_bits
+      @min_bits = (@alphabet.size + extra).bit_length
     end
 
     # Clear and stop codes
