@@ -128,7 +128,7 @@ class LZWrb
     warn('Removed duplicate entries from alphabet') if @alphabet.size < alphabet.size
 
     # Binary compression
-    @binary = binary.nil? ? alphabet == BINARY : binary
+    @binary = binary == false ? false : true
 
     # Safe mode for encoding (verifies that the data provided is composed exclusively
     # by characters from the alphabet)
@@ -212,7 +212,8 @@ class LZWrb
     # LZW-encode data
     buf = ''
     put_code(@clear) if !@clear.nil?
-    data.each_char do |c|
+    proc = -> (c) {
+      c = c.chr if @binary
       @count += 1
       next_buf = buf + c
       if table_has(next_buf)
@@ -223,7 +224,8 @@ class LZWrb
         table_check()
         buf = c
       end
-    end
+    }
+    @binary ? data.each_byte(&proc) : data.each_char(&proc)
     put_code(@table[buf])
     put_code(@stop) if !@stop.nil?
 
@@ -293,7 +295,7 @@ class LZWrb
     ttime = Time.now - stime
     log("-> Decoding finished in #{"%.3fs" % [ttime]} (avg. #{"%.3f" % [(8.0 * data.bytesize / 1024 ** 2) / ttime]} mbit\/s).")
     log("-> Decoded data: #{format_size(out.bytesize)} (#{"%5.2f%%" % [100 * (1 - data.bytesize.to_f / out.bytesize)]} compression).")
-    out
+    @binary ? out.force_encoding('ASCII-8BIT') : out.force_encoding('UTF-8')
   rescue => e
     lex(e, 'Decoding error', false)
   end
@@ -409,10 +411,10 @@ class LZWrb
   # < ------------------------- ENCODING METHODS --------------------------- >
 
   def verify_data(data)
-    missing = data.each_char.select{ |c| !@alphabet.include?(c) }.uniq
-    missing_str = missing[0...3].join(', ')
-    missing_str += '...' if missing.size > 3
-    raise "Data contains characters not present in the alphabet: #{missing_str}" if !missing.empty?
+    data.send(@binary ? :bytes : :chars) do |c|
+      c = c.chr if @binary
+      raise "Data contains character not present in the alphabet: #{c}" if !@alphabet.include?(c)
+    end
   end
 
   def put_code(code)

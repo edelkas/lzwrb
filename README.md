@@ -14,6 +14,7 @@ lzwrb is a Ruby gem for LZW encoding and decoding. Main features:
 - [Basic Usage](#basic-usage)
 - [Configuration](#configuration)
   - [Presets](#presets)
+  - [Binary vs textual](#binary-vs-textual)
   - [Code length](#code-length)
   - [Packing order](#packing-order)
   - [Clear & Stop codes](#clear--stop-codes)
@@ -63,7 +64,7 @@ The following example uses the default configuration, see the next section for a
 require 'lzwrb'
 lzw = LZWrb.new
 data = 'TOBEORNOTTOBEORTOBEORNOT' * 10000
-puts lzw.decode(lzw.encode(data)) == data
+puts lzw.decode(lzw.encode(data)) == data.b
 ```
 
 Output sample:
@@ -95,6 +96,7 @@ The following options are available:
 Argument     | Type    | Default   | Description
 ------------ | ------- | --------- | ---
 `:alphabet`  | Array   | `BINARY`  | List of characters that compose the data to encode. See [Custom alphabets](#custom-alphabets).
+`:binary`    | Boolean | True      | Whether to use binary or textual mode. See [Binary vs textual](#binary-vs-textual).
 `:bits`      | Integer | None      | Code length in bits, for constant length mode. See [Code length](#code-length).
 `:clear`     | Boolean | False     | Whether to use Clear codes or not. See [Clear & Stop codes](#clear--stop-codes).
 `:deferred`  | Boolean | False     | Whether to use deferred Clear codes for the decoding process. See [Clear & Stop codes](#clear--stop-codes).
@@ -121,6 +123,12 @@ Preset | Description
 Their descriptive names are based on the average case. However, it is possible on strange samples for the `:best` compression to actually be worse than many other settings.
 
 For example, on highly random samples, most patterns are very short, perhaps only 1 or 2 characters long, and thus substituting them with a long code can end up being counterproductive. In these cases, a smaller code length might be preferable. In fact, on this kind of data LZW encoding may end up increasing the size, and thus not being suitable at all.
+
+### Binary vs textual
+
+The encoder and decoder may be run in both `binary` (default) or `textual` mode. Binary mode encodes the bytes of the string, whereas textual mode encodes its characters. Using binary mode with the (default) `BINARY` alphabet (of length 256) suffices to encode any arbitrary input, whereas with textual mode, we'd have to ensure the provided alphabet includes all the characters used in the input (this may prove particularly tricky for Unicode strings). Therefore, if in doubt, it is recommended to leave the default binary setting and alphabet.
+
+The result of the encoding process is always returned as a binary string (i.e., `ASCII-8BIT`-encoded), whereas the result of the decoding process is either a binary string or a Unicode string (i.e., `UTF-8`-encoded), depending on which mode was selected - binary or textual - respectively.
 
 ### Code length
 

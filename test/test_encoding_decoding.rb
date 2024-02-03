@@ -12,11 +12,11 @@ class EncodingDecodingTest < Minitest::Test
         print("Testing #{min_bits}-#{max_bits} bits...".ljust(80, ' ') + "\r")
         max      = [1 << max_bits - 1, 256].min
         alphabet = (0 ... max).to_a.map(&:chr)
-        data     = (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join
+        data     = (16 * 1024).times.map{ |c| (max * rand).to_i.chr }.join.b
 
         [true, false].each{ |clear|
           [true, false].each{ |stop|
-            lzw = LZWrb.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal)
+            lzw = LZWrb.new(min_bits: min_bits, max_bits: max_bits, clear: clear, stop: stop, alphabet: alphabet, verbosity: :minimal, binary: true)
             res = lzw.decode(lzw.encode(data))
             puts "Fail: #{min_bits}-#{max_bits}, #{clear}:#{stop}, #{alphabet.size}" if res != data
             assert res == data
