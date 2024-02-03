@@ -1,11 +1,17 @@
 # lzwrb
 
+[![Gem Version](https://img.shields.io/gem/v/lzwrb.svg)](https://rubygems.org/gems/lzwrb)
+[![Gem](https://img.shields.io/gem/dt/lzwrb.svg)](https://rubygems.org/gems/lzwrb)
+[![Documentation](https://img.shields.io/badge/docs-grey.svg)](https://www.rubydoc.info/gems/lzwrb/)
+
 lzwrb is a Ruby gem for LZW encoding and decoding. Main features:
 
 * Pure Ruby, no dependencies.
 * Highly configurable (constant/variable code length, bit packing order...). See [Configuration](#configuration).
 * Compatible with many LZW specifications, including GIF (see [Presets](#presets)).
 * Reasonably fast for pure Ruby (see [Benchmarks](#benchmarks)).
+
+See also: [Documentation](https://www.rubydoc.info/gems/lzwrb/), [Changelog](https://www.rubydoc.info/gems/lzwrb/file/CHANGELOG.md).
 
 ## Table of contents
 
