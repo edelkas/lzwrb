@@ -1,5 +1,9 @@
 # Changelog
 
+### 0.2.1 (03/Feb/2024)
+
+Documentation fix.
+
 ### 0.2.0 (03/Feb/2024)
 
 - Adds: Binary vs textual encoding modes.

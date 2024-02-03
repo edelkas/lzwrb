@@ -11,7 +11,7 @@ lzwrb is a Ruby gem for LZW encoding and decoding. Main features:
 * Compatible with many LZW specifications, including GIF (see [Presets](#presets)).
 * Reasonably fast for pure Ruby (see [Benchmarks](#benchmarks)).
 
-See also: [Documentation](https://www.rubydoc.info/gems/lzwrb/), [Changelog](https://www.rubydoc.info/gems/lzwrb/file/CHANGELOG.md).
+See also: [Documentation](https://www.rubydoc.info/gems/lzwrb/), [Changelog](https://github.com/edelkas/lzwrb/blob/master/CHANGELOG.md).
 
 ## Table of contents
 
