@@ -139,6 +139,7 @@ class LZWrb
 
     # Binary compression
     @binary = binary == false ? false : true
+    warn("Binary alphabet being used with textual mode, are you sure this is what you want?") if !@binary && @alphabet == BINARY
 
     # Safe mode for encoding (verifies that the data provided is composed exclusively
     # by characters from the alphabet)
@@ -423,7 +424,10 @@ class LZWrb
   def verify_data(data)
     data.send(@binary ? :bytes : :chars) do |c|
       c = c.chr if @binary
-      raise "Data contains character not present in the alphabet: #{c}" if !@alphabet.include?(c)
+      if !@alphabet.include?(c)
+        c = c.force_encoding('UTF-8').scrub{ |b| '\x' + b.unpack('H*')[0].upcase } if @binary
+        raise "Data contains character not present in the alphabet: #{c}"
+      end
     end
   end
 

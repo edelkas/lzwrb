@@ -129,7 +129,9 @@ For example, on highly random samples, most patterns are very short, perhaps onl
 
 ### Binary vs textual
 
-The encoder and decoder may be run in both `binary` (default) or `textual` mode. Binary mode encodes the bytes of the string, whereas textual mode encodes its characters. Using binary mode with the (default) `BINARY` alphabet (of length 256) suffices to encode any arbitrary input, whereas with textual mode, we'd have to ensure the provided alphabet includes all the characters used in the input (this may prove particularly tricky for Unicode strings). Therefore, if in doubt, it is recommended to leave the default binary setting and alphabet.
+The encoder and decoder may be run in both `binary` (default) or `textual` mode. Binary mode encodes the bytes of the string, whereas textual mode encodes its characters. Using binary mode with the (default) `BINARY` alphabet (of length 256) suffices to encode any arbitrary input, whereas with textual mode, one has to ensure the provided alphabet includes all the characters used in the input (this could prove tricky for arbitrary Unicode text). On the plus side, textual mode could attain higher compression for Unicode text, given that each character will be assigned a single code.
+
+If in doubt, it is recommended to leave the default values for these settings (binary mode and binary alphabet), since it will work out of the box for any input. Note that binary mode is *always* the default, **even** when one of the custom text alphabets is used. Thus, if textual mode wants to be enforced, it needs to be set using the `binary: false` setting, and a suitable alphabet must also be specified (see [Custom alphabets](#custom-alphabets)).
 
 The result of the encoding process is always returned as a binary string (i.e., `ASCII-8BIT`-encoded), whereas the result of the decoding process is either a binary string or a Unicode string (i.e., `UTF-8`-encoded), depending on which mode was selected - binary or textual - respectively.
 
@@ -192,7 +194,7 @@ As mentioned before, this algorithm can work for arbitrary data composed of char
 
 It is the recommended alphabet to use if in doubt or if binary data is meant to be encoded. Even if the data to be encoded is just text, if it is Unicode it is probably still best to use the default binary alphabet.
 
-Nevertheless, if data composed by a substantially smaller set of symbols is meant to be encoded, the full alphabet might be overkill, and a smaller alphabet could be better suited, leading to better compression due to the potential to use smaller code lengths.
+Nevertheless, if data composed by a substantially smaller set of symbols is meant to be encoded, the full alphabet might be overkill, and a smaller alphabet could be better suited, leading to better compression due to the potential to use smaller code lengths. Unicode text can also benefit from a custom alphabet which includes all characters used in it, provided textual mode is used, since in that case, each character will be assigned a single compression code, rather than up to 4.
 
 This can be configured with the `:alphabet` option of the constructor, which receives an array with all the characters the data is (supposedly) composed of.
 

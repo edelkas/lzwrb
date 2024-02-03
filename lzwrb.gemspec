@@ -16,6 +16,10 @@ Gem::Specification.new do |s|
   s.files       = ["lib/lzwrb.rb"]
   s.homepage    = "https://github.com/edelkas/lzwrb"
   s.metadata = {
-    "source_code_uri" => "https://github.com/edelkas/lzwrb"
+    "homepage_uri"      => "https://github.com/edelkas/lzwrb",
+    "source_code_uri"   => "https://github.com/edelkas/lzwrb",
+    "documentation_uri" => "https://www.rubydoc.info/gems/lzwrb",
+    "changelog_uri"     => "https://www.rubydoc.info/gems/lzwrb/file/CHANGELOG.md"
   }
+  s.extra_rdoc_files = ["README.md", "CHANGELOG.md"]
 end
