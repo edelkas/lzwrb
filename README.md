@@ -83,9 +83,9 @@ Note: The output can be reduced or suppressed (or detailed), see [Verbosity](#ve
 Most of the usual options for the LZW algorithm can be configured individually by supplying the appropriate keyword arguments in the constructor. Additionally, there are several presets available, i.e., a selection of setting values with a specific purpose (e.g. best compression, fastest encoding, compatible with GIF...). Examples:
 
 ```ruby
-lzw1 = LZWrb.new(preset: :gif)
+lzw1 = LZWrb.new(preset: PRESET_GIF)
 lzw2 = LZWrb.new(min_bits: 8, max_bits: 16)
-lzw3 = LZWrb.new(preset: :fast, clear: true, stop: true)
+lzw3 = LZWrb.new(preset: PRESET_FAST, clear: true, stop: true)
 ```
 
 Individual settings may be used together with a preset, in which case the individual setting takes preference over the value that may be set by the preset, thus enabling the fine-tuning of a specific preset.
@@ -116,7 +116,7 @@ Preset | Description
 --- | ---
 `PRESET_BEST` | Aimed at best compression, uses variable code length (8-16 bits), no special codes and LSB packing.
 `PRESET_FAST` | Aimed at fastest encoding, uses a constant code length of 16 bits, no special codes and LSB packing.
-`PRESET_GIF` | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
+`PRESET_GIF`  | This is the exact specification implemented by the GIF format, uses variable code length (8-12 bits), clear and stop codes, and LSB packing.
 
 Their descriptive names are based on the average case. However, it is possible on strange samples for the `:best` compression to actually be worse than many other settings.
 
@@ -167,13 +167,13 @@ Another common feature of the LZW algorithm is the addition of special codes, no
   - If the code length is smaller than 8 bits. In this case, a long string of 0's at the end of the final byte is ambiguous, as it could either be just padding, or actually represent code 0. Therefore, the encoder will force stop codes when the minimum code size is below 8 bits.
   - For compatibility with formats that require stop codes, like GIF.
 
-  The encoder/decoder can be configured to use stop codes with the `:stop` option. As mentioned, stop codes might be used even this option is not set, or set to false, if the encoder deems it necessary (a warning will be issues in those cases).
+  The encoder/decoder can be configured to use stop codes with the `:stop` option. As mentioned, stop codes might be used even this option is not set, or set to false, if the encoder deems it necessary (a warning will be issued in those cases).
 
 Another relevant option is **deferred clear codes**. An intelligent encoder can choose not to refresh the code table even when it's full, thus relying on the current one, without adding any new codes, until it deems it useful, at which point it will output a clear code as a signal for the decoder. A decoder would then have to be configured accordingly, such that it doesn't refresh the code table automatically - which is the standard behaviour - unless it receives an explicit clear code.
 
 This feature can be set using the `:deferred` option during initialization. It will only affect the decoder, since the encoder is not intelligent and will therefore never choose to output clear codes prematurely nor in deferred fashion, but rather, precisely when the code table is full. Nevertheless, it is necessary if one wants to decode data that was encoded with this feature on.
 
-Some formats, like GIF, employ this feature. In fact, it caused a great deal of confusion with developers, so much so that the cover of the GIF specification deals with this explanation. To this day, many pieces of software cannot properly decode GIF files that use deferred clear codes, since their decoder automatically refresh the code table when it's full.
+Some formats, like GIF, employ this feature. In fact, it caused a great deal of confusion with developers, so much so that the cover of the GIF89 specification deals with this explanation. To this day, many pieces of software cannot properly decode GIF files that use deferred clear codes, since their decoder automatically refreshes the code table whenever it's full.
 
 ### Custom alphabets
 
@@ -189,7 +189,7 @@ For example, if the data to be encoded is composed only of bytes 0 through 7, th
 ```ruby
 ["\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06", "\x07"]
 ```
-could be used, and a minimum code length of only 3 bits could be set. The gem comes equipped with a few default alphabets as constants, for instance, `HEX_UPPER` contains all 16 possible hex digits in uppercase, and the default alphabet, `BINARY`, contains all possible 256 byte values. See the `LZWrb` class for a full list. Nevertheless, an arbitrary array can be used here, as long as it's composed only of 1-character strings.
+could be used as the alphabet, and a minimum code length of only 3 bits could be set. The gem comes equipped with a few default alphabets as constants, for instance, `HEX_UPPER` contains all 16 possible hex digits in uppercase, and the default alphabet, `BINARY`, contains all possible 256 byte values. See the `LZWrb` class for a full list. Nevertheless, an arbitrary array can be used here, as long as it's composed only of 1-character strings.
 
 Sample input:
 ```ruby
@@ -208,7 +208,7 @@ Output:
 [09:48:25.909] LZW -> Decoded data: 234.375KiB (98.15% compression).
 ```
 
-Note how the encoder automatically selected a minimum code size of 5 bits, which suffices to hold the specified alphabet. Specifying fewer minimum bits will be silently corrected by the encoder as well.
+Note how the encoder automatically selected a minimum code size of 5 bits, which suffices to hold the specified alphabet. Specifying fewer minimum bits doesn't make sense, and will be silently corrected by the encoder as well.
 
 Note that if the provided alphabet does not contain all the symbols that compose the data to be encoded, this will result in unexpected and incorrect behaviour; most likely an exception, although in some rare cases it could just result in garbled data. Therefore, the user should do either of the following:
 
@@ -264,7 +264,6 @@ Eventually I'd like to have the following extra features tested and implemented:
 
 * Add docs.
 * Add changelog.
-* Add Rake tests.
 
 ## Notes
 

@@ -1,19 +1,41 @@
+# Holds an LZW encoder/decoder with a specific configuration. These objects are not thread safe, so for
+# concurrent use different ones should be created.
 class LZWrb
 
-  # Default alphabets
+  # Alphabet containing the digits 0 to 9
   DEC         = (0...10).to_a.map(&:chr)
+
+  # Alphabet containing the hex digits 0 to F in uppercase
   HEX_UPPER   = (0...16).to_a.map{ |n| n.to_s(16).upcase }
+
+  # Alphabet containing the hex digits 0 to f in lower case
   HEX_LOWER   = (0...16).to_a.map{ |n| n.to_s(16).downcase }
+
+  # Alphabet containing the 26 letters of the latin alphabet in upper case
   LATIN_UPPER = ('A'..'Z').to_a
+
+  # Alphabet containing the 26 letters of the latin alphabet in lower case
   LATIN_LOWER = ('a'..'z').to_a
+
+  # Alphabet containing the alphanumeric characters in upper case (A-Z, 0-9)
   ALPHA_UPPER = LATIN_UPPER + DEC
+
+  # Alphabet containing the alphanumeric characters in lower case (a-z, 0-9)
   ALPHA_LOWER = LATIN_LOWER + DEC
+
+  # Alphabet containing the alphanumeric characters (A-Z, a-z, 0-9)
   ALPHA       = LATIN_UPPER + LATIN_LOWER + DEC
+
+  # Alphabet containing all printable ASCII characters (ASCII 32 - 127)
   PRINTABLE   = (32...127).to_a.map(&:chr)
+
+  # Alphabet containing all ASCII characters
   ASCII       = (0...128).to_a.map(&:chr)
+
+  # Alphabet containing all possible byte values, suitable for any input data
   BINARY      = (0...256).to_a.map(&:chr)
 
-  # Default presets
+  # Preset to satisfy the GIF specification
   PRESET_GIF = {
     min_bits: 8,
     max_bits: 12,
@@ -22,6 +44,8 @@ class LZWrb
     stop:     true,
     deferred: true
   }
+
+  # Preset optimized for speed
   PRESET_FAST = {
     min_bits: 16,
     max_bits: 16,
@@ -29,6 +53,8 @@ class LZWrb
     clear:    false,
     stop:     false
   }
+
+  # Preset optimized for compression
   PRESET_BEST = {
     min_bits: 8,
     max_bits: 16,
@@ -54,19 +80,33 @@ class LZWrb
   @@stop     = false # Use STOP codes
   @@deferred = false # Use deferred CLEAR codes
 
+  # Creates a new encoder/decoder object with the given settings.
+  # @param alphabet [Array<String>] Set of characters that compose the messages to encode.
+  # @param binary [Boolean] Use binary encoding (vs regular text encoding).
+  # @param bits [Integer] Code bit size for constant length encoding (superseeds min/max bit size).
+  # @param clear [Boolean] Use clear codes every time the table gets reinitialized.
+  # @param deferred [Boolean] Support deferred clear codes when decoding (i.e., don't refresh code table unless an explicit clear code is received, even when it's full).
+  # @param lsb [Boolean] Use least or most significant bit packing (currently useless, only LSB supported).
+  # @param max_bits [Integer] Maximum code bit size for variable length encoding (superseeded by `bits`).
+  # @param min_bits [Integer] Minimum code bit size for variable length encoding (superseeded by `bits`).
+  # @param preset [Hash] Predefined configurations for a few settings (such as bit count or usage of clear/stop codes)
+  # @param safe [Boolean] First encoding pass to verify alphabet covers all data
+  # @param stop [Boolean] Use stop codes to denote the end of the encoded data.
+  # @param verbosity [Integer] Verbosity level of the encoder (1-5) (see {LZWrb::VERBOSITY}).
+  # @return [LZWrb] The newly created encoder/decoder.
   def initialize(
-      preset:    nil,     # Predefined configurations (GIF...)
-      bits:      nil,     # Code bit size for constant length encoding (superseeds min/max bit size)
-      min_bits:  nil,     # Minimum code bit size for variable length encoding (superseeded by 'bits')
-      max_bits:  nil,     # Maximum code bit size for variable length encoding (superseeded by 'bits')
-      binary:    nil,     # Use binary encoding (vs regular text encoding)
-      alphabet:  BINARY,  # Set of characters that compose the messages to encode
-      safe:      false,   # First encoding pass to verify alphabet covers all data
-      lsb:       nil,     # Use least or most significant bit packing
-      clear:     nil,     # Use clear codes every time the table gets reinitialized
-      stop:      nil,     # Use stop codes at the end of the encoding
-      deferred:  nil,     # Use deferred clear codes
-      verbosity: :normal  # Verbosity level of the encoder
+      preset:    nil,
+      bits:      nil,
+      min_bits:  nil,
+      max_bits:  nil,
+      binary:    nil,
+      alphabet:  BINARY,
+      safe:      false,
+      lsb:       nil,
+      clear:     nil,
+      stop:      nil,
+      deferred:  nil,
+      verbosity: :normal
     )
     # Parse preset
     params = preset || {}
@@ -156,6 +196,9 @@ class LZWrb
     @lsb = find_arg(lsb, params[:lsb], @@lsb)
   end
 
+  # Encode the provided data.
+  # @param [String] Data to encode.
+  # @return [String] Encoded data.
   def encode(data)
     # Log
     log("<- Encoding #{format_size(data.bytesize)} with #{format_params}.")
@@ -170,6 +213,7 @@ class LZWrb
     buf = ''
     put_code(@clear) if !@clear.nil?
     data.each_char do |c|
+      @count += 1
       next_buf = buf + c
       if table_has(next_buf)
         buf = next_buf
@@ -195,7 +239,9 @@ class LZWrb
     lex(e, 'Encoding error', true)
   end
 
-  # Optimization? Unpack bits subsequently, rather than converting between strings and ints
+  # Decode the provided data.
+  # @param [String] Data to decode.
+  # @return [String] Decoded data.
   def decode(data)
     # Log
     log("<- Decoding #{format_size(data.bytesize)} with #{format_params}.")
@@ -214,6 +260,7 @@ class LZWrb
     width = @bits
     while off + width <= len
       # Parse code
+      @count += 1
       code = bits[off ... off + width].reverse.to_i(2)
       off += width
 
@@ -256,10 +303,11 @@ class LZWrb
   # Initialize buffers, needs to be called every time we execute a new
   # compression / decompression job
   def init(compress)
-    @buffer = []              # Contains result of compression
-    @boff = 0                 # BIT offset of last buffer byte, for packing
-    @compress = compress      # Compression or decompression job
-    @step = @compress ? 0 : 1 # Decoder is always 1 step behind the encoder
+    @count    = 0                 # Amount of codes generated
+    @buffer   = []                # Contains result of compression
+    @boff     = 0                 # BIT offset of last buffer byte, for packing
+    @compress = compress          # Compression or decompression job
+    @step     = @compress ? 0 : 1 # Decoder is always 1 step behind the encoder
   end
 
   # < --------------------------- PARSING METHODS ---------------------------- >
@@ -326,6 +374,7 @@ class LZWrb
     end
 
     @bits = [@key.bit_length, @min_bits].max
+    dbg("Refreshed code table after #{@count} #{@compress ? 'characters' : 'codes'}.")
   end
 
   def table_has(val)
@@ -360,8 +409,10 @@ class LZWrb
   # < ------------------------- ENCODING METHODS --------------------------- >
 
   def verify_data(data)
-    alph = @alphabet.each_with_index.to_h
-    raise "Data contains characters not present in the alphabet" if data.each_char.any?{ |c| !alph.include?(c) }
+    missing = data.each_char.select{ |c| !@alphabet.include?(c) }.uniq
+    missing_str = missing[0...3].join(', ')
+    missing_str += '...' if missing.size > 3
+    raise "Data contains characters not present in the alphabet: #{missing_str}" if !missing.empty?
   end
 
   def put_code(code)
