@@ -269,12 +269,7 @@ Eventually I'd like to have the following extra features tested and implemented:
 ### Optimizations
 
 * Native packing for codes of constant width of 8, 16, 32 or 64 bits for extra speed.
-* Use a Trie instead of a Hash for the encoding process.
-
-### Development
-
-* Add docs.
-* Add changelog.
+* Try using a Trie instead of a Hash for the encoding process.
 
 ## Notes
 
