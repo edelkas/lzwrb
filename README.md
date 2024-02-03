@@ -43,11 +43,13 @@ With [Bundler](https://bundler.io/#getting-started) just add the following line 
 ```ruby
 gem 'lzwrb'
 ```
+
 And then install via `bundle install`.
 
 ### Using RubyGems
 
 With Ruby's package manager, just execute the following command on the terminal:
+
 ```
 gem install lzwrb
 ```
@@ -77,6 +79,7 @@ Output sample:
 [09:41:19.773] LZW -> Decoded data: 234.375KiB (98.10% compression).
 true
 ```
+
 Note: The output can be reduced or suppressed (or detailed), see [Verbosity](#verbosity).
 
 ## Configuration

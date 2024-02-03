@@ -1,2 +1,4 @@
 .byebug*
 *.gem
+/.yardoc
+/doc

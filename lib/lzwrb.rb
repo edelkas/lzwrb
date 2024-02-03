@@ -72,17 +72,27 @@ class LZWrb
     debug:   4  # Print everything, including debug details about the encoding process
   }
 
-  # Class default values (no NIL's here!)
-  @@min_bits = 8     # Minimum code bit length
-  @@max_bits = 16    # Maximum code bit length before rebuilding table
-  @@lsb      = true  # Least significant bit first order
-  @@clear    = false # Use CLEAR codes
-  @@stop     = false # Use STOP codes
-  @@deferred = false # Use deferred CLEAR codes
+  # Default value for minimum code bits (may be changed depending on alphabet)
+  DEFAULT_MIN_BITS = 8
+
+  # Default value for maximum code bits before rebuilding code table (may be changed depending on alphabet)
+  DEFAULT_MAX_BITS = 16
+
+  # Use Least Significant Bit packing order
+  DEFAULT_LSB      = true
+
+  # Use explicit Clear codes to indicate the initialization of the code table
+  DEFAULT_CLEAR    = false
+
+  # Use explicit Stop codes to indicate the end of the data
+  DEFAULT_STOP     = false
+
+  # Enable the use of deferred Clear codes (the decoder won't rebuild the table, even when full, unless an explicit Clear code is received)
+  DEFAULT_DEFERRED = false
 
   # Creates a new encoder/decoder object with the given settings.
   # @param alphabet [Array<String>] Set of characters that compose the messages to encode.
-  # @param binary [Boolean] Use binary encoding (vs regular text encoding).
+  # @param binary [Boolean] Use binary encoding or textual encoding.
   # @param bits [Integer] Code bit size for constant length encoding (superseeds min/max bit size).
   # @param clear [Boolean] Use clear codes every time the table gets reinitialized.
   # @param deferred [Boolean] Support deferred clear codes when decoding (i.e., don't refresh code table unless an explicit clear code is received, even when it's full).
@@ -92,7 +102,7 @@ class LZWrb
   # @param preset [Hash] Predefined configurations for a few settings (such as bit count or usage of clear/stop codes)
   # @param safe [Boolean] First encoding pass to verify alphabet covers all data
   # @param stop [Boolean] Use stop codes to denote the end of the encoded data.
-  # @param verbosity [Integer] Verbosity level of the encoder (1-5) (see {LZWrb::VERBOSITY}).
+  # @param verbosity [Integer] Verbosity level of the encoder (see {LZWrb::VERBOSITY}).
   # @return [LZWrb] The newly created encoder/decoder.
   def initialize(
       preset:    nil,
@@ -144,8 +154,8 @@ class LZWrb
         @max_bits = bits
       end
     else
-      @min_bits = find_arg(min_bits, params[:min_bits], @@min_bits)
-      @max_bits = find_arg(max_bits, params[:max_bits], @@max_bits)
+      @min_bits = find_arg(min_bits, params[:min_bits], DEFAULT_MIN_BITS)
+      @max_bits = find_arg(max_bits, params[:max_bits], DEFAULT_MAX_BITS)
       if @max_bits < @min_bits
         warn("Max code size (#{@max_bits}) should be higher than min code size (#{@min_bits}): changed max code size to #{@min_bits}.")
         @max_bits = @min_bits
@@ -159,8 +169,8 @@ class LZWrb
     end
 
     # Clear and stop codes
-    use_clear = find_arg(clear, params[:clear], @@clear)
-    use_stop = find_arg(stop, params[:stop], @@stop)
+    use_clear = find_arg(clear, params[:clear], DEFAULT_CLEAR)
+    use_stop = find_arg(stop, params[:stop], DEFAULT_STOP)
     if !use_stop && @min_bits < 8
       use_stop = true
       # Warning if stop codes were explicitly disabled (false, NOT nil)
@@ -190,14 +200,14 @@ class LZWrb
     idx = @alphabet.size - 1
     @clear = use_clear ? idx += 1 : nil
     @stop = use_stop ? idx += 1 : nil
-    @deferred = find_arg(deferred, params[:deferred], @@deferred)
+    @deferred = find_arg(deferred, params[:deferred], DEFAULT_DEFERRED)
 
     # Least/most significant bit packing order
-    @lsb = find_arg(lsb, params[:lsb], @@lsb)
+    @lsb = find_arg(lsb, params[:lsb], DEFAULT_LSB)
   end
 
   # Encode the provided data.
-  # @param [String] Data to encode.
+  # @param data [String] Data to encode.
   # @return [String] Encoded data.
   def encode(data)
     # Log
@@ -242,7 +252,7 @@ class LZWrb
   end
 
   # Decode the provided data.
-  # @param [String] Data to decode.
+  # @param data [String] Data to decode.
   # @return [String] Decoded data.
   def decode(data)
     # Log
