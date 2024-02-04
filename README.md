@@ -225,6 +225,7 @@ Output:
 [09:48:25.899] LZW <- Decoding 4.330KiB with 5-16 bit codes, LSB packing, STOP codes, textual mode.
 [09:48:25.909] LZW -> Decoding finished in 0.010s (avg. 3.272 mbit/s).
 [09:48:25.909] LZW -> Decoded data: 234.375KiB (98.15% compression).
+true
 ```
 
 Note how the encoder automatically selected a minimum code size of 5 bits, which suffices to hold the specified alphabet. Specifying fewer minimum bits doesn't make sense, and will be silently corrected by the encoder as well.

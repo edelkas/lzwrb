@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
   s.metadata = {
     "homepage_uri"      => 'https://github.com/edelkas/lzwrb',
     "source_code_uri"   => 'https://github.com/edelkas/lzwrb',
-    "documentation_uri" => 'https://www.rubydoc.info/gems/lzwrb',
+    "documentation_uri" => 'https://www.rubydoc.info/gems/lzwrb/',
     "changelog_uri"     => 'https://www.rubydoc.info/gems/lzwrb/file/CHANGELOG.md'
   }
 end
