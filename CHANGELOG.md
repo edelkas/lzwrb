@@ -1,5 +1,9 @@
 # Changelog
 
+### 0.2.2 (03/Mar/2024)
+
+Minor encoding optimization (~10% speed increase)
+
 ### 0.2.1 (03/Feb/2024)
 
 Documentation fix.

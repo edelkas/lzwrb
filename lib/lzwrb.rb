@@ -90,6 +90,9 @@ class LZWrb
   # Enable the use of deferred Clear codes (the decoder won't rebuild the table, even when full, unless an explicit Clear code is received)
   DEFAULT_DEFERRED = false
 
+  # Dictionary of binary chars for fast access
+  CHARS = 256.times.map(&:chr)
+
   # Creates a new encoder/decoder object with the given settings.
   # @param alphabet [Array<String>] Set of characters that compose the messages to encode.
   # @param binary [Boolean] Use binary encoding or textual encoding.
@@ -221,10 +224,10 @@ class LZWrb
     verify_data(data) if @safe
 
     # LZW-encode data
-    buf = ''
+    buf = ''.b
     put_code(@clear) if !@clear.nil?
     proc = -> (c) {
-      c = c.chr if @binary
+      c = CHARS[c] if @binary
       @count += 1
       next_buf = buf + c
       if table_has(next_buf)

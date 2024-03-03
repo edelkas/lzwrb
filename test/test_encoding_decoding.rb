@@ -3,7 +3,7 @@ require "lzwrb"
 
 # Encodes and then decodes a randomly generated 16KB sample with many different
 # settings combinations, ensuring that the result matches the original sample.
-# Namely, every combination of min/max bit code size from 2 to 16 is used, both
+# Namely, every combination of min/max bit code size from 2 to 20 is used, both
 # with and without clear/stop codes, and both binary and textual mode. The
 # alphabet is chosen appropriately to be able to hold the data.
 #

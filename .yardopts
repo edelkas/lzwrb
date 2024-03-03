@@ -1,1 +1,1 @@
-lib/**/*.rb - CHANGELOG.md
+lib/**/*.rb -m markdown --no-private - CHANGELOG.md docs/**/*
